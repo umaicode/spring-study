@@ -4,28 +4,50 @@ import hello.hello_spring.domain.Member;
 import hello.hello_spring.repository.MemberRepository;
 import hello.hello_spring.repository.MemoryMemberRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
 
-// @Service는 스프링에 올라올 때, 얘를 서비스네? 하고 스프링 컨테이너에 멤버 서비스를 딱 등록해준다.
-@Service
 public class MemberService {
 
-//    private final MemberRepository memberRepository = new MemoryMemberRepository();
+    // setter injection 안좋은 점
+    // 누군가가 멤버 서비스. 하면 아무 개발자나 호출할 수 있게 열려있게 된다.
+    // 개발은 최대한 변경, 호출하지 않아야 될 메서드가 호출되면 안된다.
+    // 조립 시점에 딱 생성자로 한 번만 조립해 놓고 얘를 끝을 내버려야 한다.
+//    private MemberService memberService;
+//
+//    @Autowired
+//    public MemberController(MemberService memberService) {
+//        this.memberService = memberService;
+//        memberService.setMemberRepository();
+//    }
 
-    private final MemberRepository memberRepository;
+    // 생성자 주입 방식
+//    private final MemberRepository memberRepository;
+//
+//    public MemberService(MemberRepository memberRepository) {
+//        this.memberRepository = memberRepository;
+//    }
 
-    // 멤버 서비스는 멤버 리포지토리가 필요하다!
-    // 멤버 서비스를 스프링이 딱 생성을 할 때, 스프링이 멤버 서비스네? 하고 스프링 컨텐츠에 등록
-    // 등록을 하면서 이 생성자라를 또 호출.
-    // 그때 Autowired가 있으면 너는 멤버 리포지토리가 필요하구나? 하고 스프링 컨테이너에 멤버 리포지토리 넣어준다.
-    // MemoryMemberRepository가 구현체로 존재하므로, MemoryMemberRepository를 서비스에 주입해준다.
+    // 이거 만약에 @Autowired를 했는데 SpringConfig에서 관리를 안한다면?
+    // @Autowired 가 먹을까 안먹을까?
+    // -> 당연히 안먹는다.
+    // -> 멤버 서비스가 스프링에 등록이 되고 스프링 관리를 해야 스프링이 @Autowired도 적용할 수 있다.
+    // -> 관리를 안하고 있다면 코드 자체가 동작하지 않는다.
+
+    // MemberService memberService = new MemberService();
+    // new해서 직접 MemberService를 생성하는 경우에도, @Autowired가 동작하지 않는다.
+    // -> 내가 직접 생성한 거니까!
+    // -> 스프링 컨테이너에 올라가는 것들만 이 @Autowired 기능이 동작을 한다.
+    private MemberRepository memberRepository;
+
     @Autowired
     public MemberService(MemberRepository memberRepository) {
         this.memberRepository = memberRepository;
     }
+
 
     /**
      * 회원 가입
