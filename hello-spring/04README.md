@@ -1058,6 +1058,73 @@ public class MemberController {
    }
    ```
 
+---
+
+#### 생성자 주입의 핵심 개념: "애플리케이션 조립"
+
+MemberController.java의 주석에서:
+> "처음에 애플리케이션이 조립된다고 표현을 한다."
+
+이 말의 의미는:
+- 스프링 애플리케이션 시작 시 모든 빈을 생성하고 조립
+- **조립 시점(애플리케이션 시작 시)에 딱 한 번만 의존관계 설정**
+- 이후에는 변경 불가 (불변성)
+
+**조립(Assembly) 개념 설명:**
+
+```java
+// 애플리케이션 시작 시 (조립 시점)
+MemoryMemberRepository repository = new MemoryMemberRepository();
+MemberService service = new MemberService(repository);
+MemberController controller = new MemberController(service);
+// ↑ 이 시점에 모든 의존관계가 "조립"됨
+
+// 이후 애플리케이션 실행 중에는...
+controller.memberService = ???;  // 불가능! (final이므로)
+// → 조립 후에는 변경할 수 없음
+```
+
+**왜 "조립"이라는 표현을 쓸까?**
+
+자동차 조립 과정을 생각해보세요:
+1. 부품(빈)들을 준비
+2. 조립 라인에서 부품을 결합 (의존관계 주입)
+3. 조립 완료 후 출고 (애플리케이션 실행)
+4. 출고 후에는 조립 라인으로 돌아갈 수 없음
+
+**실전 예시:**
+
+```java
+// ✅ 생성자 주입: 조립 시점에 고정
+@Service
+public class MemberService {
+    private final MemberRepository memberRepository;
+
+    public MemberService(MemberRepository memberRepository) {
+        this.memberRepository = memberRepository;
+        // 조립 시점에 결정되고, 이후 변경 불가
+    }
+}
+
+// ❌ 세터 주입: 조립 후에도 변경 가능 (위험!)
+@Service
+public class MemberService {
+    private MemberRepository memberRepository;
+
+    public void setMemberRepository(MemberRepository memberRepository) {
+        this.memberRepository = memberRepository;
+        // 언제든지 변경 가능 → 예측 불가능
+    }
+}
+```
+
+MemberService.java의 주석에서:
+> "조립 시점에 딱 생성자로 한 번만 조립해 놓고 얘를 끝을 내버려야 한다."
+
+즉:
+- **조립 시점**: 애플리케이션 시작 시 생성자로 의존관계 설정
+- **끝을 낸다**: 이후에는 변경하지 않음 (불변성 유지)
+
 **💡 실무 팁: 생성자가 1개면 @Autowired 생략 가능**
 
 ```java
@@ -1117,6 +1184,118 @@ public class MemberController {
    // memberService가 주입되지 않음
    ```
 
+---
+
+#### 필드 주입의 치명적 문제: "바꿔치기 불가능"
+
+MemberController.java의 주석에서:
+> "중간에 바꿔치기 할 수 있는 방법이 없다."
+
+이 말의 의미는:
+- 한번 스프링이 주입하면 테스트 시 Mock으로 교체 불가
+- 외부에서 접근할 방법이 없음
+- setter도 없고, 생성자도 없음
+
+**구체적인 문제 상황:**
+
+```java
+// ❌ 필드 주입: 바꿔치기 불가
+@Controller
+public class MemberController {
+    @Autowired
+    private MemberService memberService;
+    // memberService를 어떻게 바꿀까? → 불가능!
+}
+
+// 테스트에서 Mock 주입 시도
+@Test
+void 테스트() {
+    MemberController controller = new MemberController();
+    MemberService mockService = mock(MemberService.class);
+
+    // memberService에 어떻게 mockService를 주입?
+    // → setter가 없어서 불가능!
+    // → 생성자도 없어서 불가능!
+    // → private 필드라 직접 접근도 불가능!
+
+    controller.memberService = mockService;  // 컴파일 에러!
+}
+```
+
+**비교: 생성자 주입은 바꿔치기 가능**
+
+```java
+// ✅ 생성자 주입: 바꿔치기 가능
+@Controller
+public class MemberController {
+    private final MemberService memberService;
+
+    public MemberController(MemberService memberService) {
+        this.memberService = memberService;
+    }
+}
+
+// 테스트에서 Mock 주입 가능!
+@Test
+void 테스트() {
+    MemberService mockService = mock(MemberService.class);
+    MemberController controller = new MemberController(mockService);
+    // ✅ 생성자로 쉽게 Mock 주입!
+}
+
+// 실제 코드에서는 실제 Service 주입
+MemberController realController = new MemberController(realService);
+```
+
+**시각화:**
+
+```
+[필드 주입 - 바꿔치기 불가]
+┌──────────────────────┐
+│ MemberController     │
+│                      │
+│ @Autowired           │
+│ private Service      │ ← 스프링만 주입 가능
+│                      │   개발자는 접근 불가!
+└──────────────────────┘
+     ↑
+     │ (스프링만 가능)
+     │
+  스프링 컨테이너
+
+
+[생성자 주입 - 바꿔치기 가능]
+┌──────────────────────┐
+│ MemberController     │
+│                      │
+│ Controller(Service)  │ ← 생성자로 주입
+│                      │   누구나 접근 가능!
+└──────────────────────┘
+     ↑
+     │ (생성자로 주입)
+     │
+  개발자 or 스프링
+```
+
+**실무 함정:**
+
+필드 주입을 사용하면 테스트할 때 리플렉션을 사용해야 합니다:
+
+```java
+// ❌ 필드 주입 시 테스트 코드 (복잡함!)
+@Test
+void 필드주입_테스트() throws Exception {
+    MemberController controller = new MemberController();
+    MemberService mockService = mock(MemberService.class);
+
+    // Reflection 사용해서 private 필드 강제 주입
+    Field field = MemberController.class.getDeclaredField("memberService");
+    field.setAccessible(true);
+    field.set(controller, mockService);
+    // → 너무 복잡하고 번거로움!
+}
+```
+
 **언제 사용하는가?**
 - 테스트 코드에서 간단히 사용할 때 (프로덕션 코드에서는 비권장)
 - `@SpringBootTest` 같은 통합 테스트에서
@@ -1153,11 +1332,169 @@ public class MemberController {
 - 의존성이 변경될 수 있음 (불변성 X)
 - 필수 의존성이 명확하지 않음
 
+---
+
+#### 세터 주입의 문제점: "public 노출"과 "불필요한 개방"
+
+MemberController.java의 주석에서:
+> "누군가가 멤버 컨트롤을 호출했을 때, public으로 열려있어야 한다."
+> "한번 세팅이 되고 나면 중간에 뭘 바꿀 일이 없다."
+
+MemberService.java의 주석에서:
+> "조립 시점에 딱 생성자로 한 번만 조립해 놓고 얘를 끝을 내버려야 한다."
+> "개발은 최대한 변경, 호출하지 않아야 될 메서드가 호출되면 안된다."
+
+이 말들의 의미는:
+- Setter가 public이므로 누구나 호출 가능 → 보안 위험
+- 애플리케이션 로딩 시점(조립 시점)에만 설정하면 되는데, 왜 계속 public으로 열어둬야 하는가?
+- 실수로 setter를 다시 호출하면 의존성이 바뀔 위험
+
+**구체적인 위험 시나리오:**
+
+```java
+// ❌ Setter 주입: public으로 열려있음
+@Service
+public class MemberService {
+    private MemberRepository memberRepository;
+
+    @Autowired
+    public void setMemberRepository(MemberRepository memberRepository) {
+        this.memberRepository = memberRepository;
+    }
+}
+
+// 애플리케이션 실행 중...
+@Controller
+public class SomeController {
+    @Autowired
+    private MemberService memberService;
+
+    public void someMethod() {
+        // 실수로 또는 악의적으로 setter 호출 가능!
+        memberService.setMemberRepository(null);  // 💣 위험!
+        // → 다른 곳에서 사용 중인 memberService의 repository가 null이 됨
+        // → 런타임 에러 발생!
+
+        // 또는 잘못된 구현체로 교체
+        memberService.setMemberRepository(hackedRepository);  // 💣 보안 위험!
+    }
+}
+```
+
+**비교: 생성자 주입은 조립 후 변경 불가**
+
+```java
+// ✅ 생성자 주입: 조립 시점에만 설정
+@Service
+public class MemberService {
+    private final MemberRepository memberRepository;
+
+    public MemberService(MemberRepository memberRepository) {
+        this.memberRepository = memberRepository;
+        // 조립 시점(애플리케이션 시작 시)에 딱 한 번만 설정
+    }
+
+    // setter가 없으므로 외부에서 변경 불가!
+}
+
+// 애플리케이션 실행 중...
+@Controller
+public class SomeController {
+    @Autowired
+    private MemberService memberService;
+
+    public void someMethod() {
+        memberService.setMemberRepository(null);
+        // 컴파일 에러! setter가 없어서 불가능
+        // → 안전함!
+    }
+}
+```
+
+**시각화: 조립 시점 vs 실행 시점**
+
+```
+[Setter 주입 - 언제든 변경 가능]
+
+조립 시점 (애플리케이션 시작)
+  ↓
+service.setRepository(realRepo);  ✅ 정상 주입
+
+실행 시점 (애플리케이션 운영 중)
+  ↓
+service.setRepository(null);      ❌ 문제 발생 가능!
+service.setRepository(hackedRepo); ❌ 보안 위험!
+
+
+[생성자 주입 - 조립 시점에만 설정]
+
+조립 시점 (애플리케이션 시작)
+  ↓
+new MemberService(realRepo);  ✅ 정상 주입
+
+실행 시점 (애플리케이션 운영 중)
+  ↓
+service.setRepository(null);  ❌ 메서드 자체가 없음!
+// → 변경 불가능 (final) → 안전!
+```
+
+**실무 사례:**
+
+```java
+// ❌ Setter 주입 시 발생할 수 있는 버그
+@Service
+public class OrderService {
+    private PaymentService paymentService;
+
+    @Autowired
+    public void setPaymentService(PaymentService paymentService) {
+        this.paymentService = paymentService;
+    }
+
+    public void processOrder(Order order) {
+        paymentService.pay(order);  // paymentService가 null이면? NPE!
+    }
+}
+
+// 어딘가에서 실수로...
+orderService.setPaymentService(null);
+// → 다른 사용자가 주문할 때 에러 발생!
+
+
+// ✅ 생성자 주입: 이런 일이 애초에 불가능
+@Service
+public class OrderService {
+    private final PaymentService paymentService;  // final!
+
+    public OrderService(PaymentService paymentService) {
+        this.paymentService = paymentService;
+        // 조립 시점에 설정, 이후 변경 불가
+    }
+
+    public void processOrder(Order order) {
+        paymentService.pay(order);  // 항상 안전!
+    }
+}
+// setter가 없으므로 변경 자체가 불가능
+```
+
+**핵심 원칙:**
+
+MemberService.java의 주석:
+> "조립 시점에 딱 생성자로 한 번만 조립해 놓고 얘를 끝을 내버려야 한다."
+
+즉:
+- **조립 시점**: 애플리케이션 시작 시 한 번만 의존관계 설정
+- **끝을 낸다**: 이후에는 변경하지 않음
+- **왜?**: 변경할 이유도 없고, 변경되면 위험하기 때문
+
 **언제 사용하는가?**
 - 선택적 의존성일 때 (거의 없음)
 - 레거시 코드 유지보수
 
 **💡 실무에서는 거의 사용하지 않습니다.**
+
+**💡 참고**: @Autowired가 언제 동작하고 언제 동작하지 않는지에 대한 자세한 내용은 [6.7 스프링 컨테이너 관리와 @Autowired의 관계](#67-스프링-컨테이너-관리와-autowired의-관계)를 참조하세요.
 
 ---
 
@@ -1792,6 +2129,8 @@ public class MemberService {
 
 **@Configuration**과 **@Bean**을 사용하면 자바 코드로 직접 빈을 등록할 수 있습니다.
 
+#### SpringConfig.java 전체 코드와 핵심 설명
+
 ```java
 package hello.hello_spring;
 
@@ -1812,6 +2151,8 @@ public class SpringConfig {
     @Bean
     public MemberRepository memberRepository() {
         return new MemoryMemberRepository();
+        // 나중에 이 한 줄만 변경!
+        // return new JpaMemberRepository();
     }
 }
 ```
@@ -1820,6 +2161,242 @@ public class SpringConfig {
 1. `@Configuration`이 붙은 클래스는 스프링 설정 클래스로 인식
 2. `@Bean`이 붙은 메서드의 반환 객체가 스프링 빈으로 등록
 3. 메서드 이름이 빈 이름이 됨 (예: `memberService()` → `memberService` 빈)
+
+---
+
+#### 왜 이 방식을 사용하는가?
+
+**배경 시나리오** (SpringConfig.java 주석에서):
+
+> "우리는 현재 멤버 리포지토리를 설계할 때, 아직 데이터 저장소가 선정되지 않았다는 가상의 시나리오가 존재한다."
+> "그래서 지금 인터페이스를 설계를 하고 구현체로 MemoryMemberRepository를 쓰는 그림이 된 것이다."
+> "우리는 나중에 MemoryMemberRepository를 다른 리포지토리로 바꿔치기를 해야 한다!"
+
+**실무에서 흔한 상황:**
+- 프로젝트 초기: DB 미정 → 메모리 DB 사용
+- 개발 중반: MySQL 도입 → JdbcMemberRepository로 교체
+- 나중: JPA 도입 → JpaMemberRepository로 교체
+
+---
+
+#### 핵심 장점: "기존 코드를 하나도 손대지 않고 바꿔치기!"
+
+SpringConfig.java 주석에서:
+
+> "그런데 기존의 운영 중인 코드를 하나도 손대지 않고 바꿔치기할 수 있는 방법이 있다!"
+> "기존의 MemberService나 나머지 코드에 일절 손대는 거 없이 딱 바꿔치기할 수 있다!"
+> "이것이 직접 설정 파일을 운영할 때 장점!"
+> "컴포넌트 스캔을 사용하면 여러 코드를 바꿔야 한다."
+
+**구체적 예시:**
+
+```java
+// Phase 1: 개발 초기 (현재 상태)
+@Configuration
+public class SpringConfig {
+    @Bean
+    public MemberRepository memberRepository() {
+        return new MemoryMemberRepository();
+        // 메모리에만 저장 (테스트용)
+    }
+}
+
+// Phase 2: MySQL 도입 (이 한 줄만 수정!)
+@Configuration
+public class SpringConfig {
+    @Bean
+    public MemberRepository memberRepository() {
+        // return new MemoryMemberRepository();  // 주석 처리
+        return new JdbcMemberRepository(dataSource);
+        // 실제 DB에 저장
+    }
+}
+
+// Phase 3: JPA 도입 (이 한 줄만 수정!)
+@Configuration
+public class SpringConfig {
+    @Bean
+    public MemberRepository memberRepository() {
+        // return new MemoryMemberRepository();
+        // return new JdbcMemberRepository(dataSource);
+        return new JpaMemberRepository(entityManager);
+        // JPA로 저장
+    }
+}
+
+// ✅ 중요: MemberService, MemberController는 단 한 줄도 수정하지 않음!
+```
+
+**시각화: 수정 범위 비교**
+
+```
+[수동 빈 등록 방식 - SpringConfig 사용]
+수정 필요한 파일:
+  ✅ SpringConfig.java: 1줄만 수정
+  ✅ MemberService.java: 수정 없음
+  ✅ MemberController.java: 수정 없음
+  ✅ Test 코드: 수정 없음
+
+총 수정: 1개 파일, 1줄
+
+
+[컴포넌트 스캔 방식]
+수정 필요한 파일:
+  ❌ MemoryMemberRepository.java: @Repository 제거
+  ❌ JpaMemberRepository.java: @Repository 추가
+  ❌ 여러 파일 수정 필요
+  ❌ Git conflict 가능성 증가
+
+총 수정: 2개 이상의 파일
+```
+
+---
+
+#### OCP (개방-폐쇄 원칙) 준수
+
+SpringConfig.java 주석에서:
+> "MemoryMemberRepository를 데이터베이스에 실제 연결하는 리포지토리로 바꿀거다!"
+> "나중에 데이터베이스 연결을 하게 되면 return new MemoryMemberRepository();를 DbMemberRepository()로 바꿔주기만 하면 된다."
+> "다른 코드를 전혀 손 댈 필요가 없다."
+
+**OCP (Open-Closed Principle):**
+- **개방**: 새로운 기능 추가에 열려있음 (새 Repository 추가 가능)
+- **폐쇄**: 기존 코드 수정에 닫혀있음 (Service, Controller 수정 불필요)
+
+```java
+// 인터페이스는 그대로
+public interface MemberRepository {
+    Member save(Member member);
+    Optional<Member> findById(Long id);
+    Optional<Member> findByName(String name);
+    List<Member> findAll();
+}
+
+// 구현체만 교체
+@Configuration
+public class SpringConfig {
+    @Bean
+    public MemberRepository memberRepository() {
+        // 이 한 줄만 바꾸면 전체 시스템의 Repository가 바뀜!
+        return new MemoryMemberRepository();     // or
+        // return new JdbcMemberRepository();    // or
+        // return new JpaMemberRepository();     // or
+        // return new MongoMemberRepository();   // 언제든 추가 가능!
+    }
+}
+```
+
+---
+
+#### 실무 활용 예시
+
+**1. 환경별로 다른 구현체 사용**
+
+```java
+@Configuration
+public class SpringConfig {
+
+    @Value("${spring.profiles.active}")
+    private String profile;
+
+    @Bean
+    public MemberRepository memberRepository() {
+        if ("dev".equals(profile)) {
+            return new MemoryMemberRepository();  // 개발: 메모리
+        } else if ("test".equals(profile)) {
+            return new H2MemberRepository();      // 테스트: H2
+        } else {
+            return new JpaMemberRepository();     // 운영: JPA
+        }
+        // 환경만 바꾸면 자동으로 Repository 교체!
+    }
+}
+```
+
+**2. 기능 플래그(Feature Flag) 활용**
+
+```java
+@Configuration
+public class SpringConfig {
+
+    @Value("${feature.use-jpa}")
+    private boolean useJpa;
+
+    @Bean
+    public MemberRepository memberRepository() {
+        if (useJpa) {
+            return new JpaMemberRepository();
+        } else {
+            return new MemoryMemberRepository();
+        }
+        // application.yml에서 feature.use-jpa: true/false만 바꾸면 됨!
+    }
+}
+```
+
+**3. A/B 테스트**
+
+```java
+@Configuration
+public class SpringConfig {
+
+    @Bean
+    public MemberRepository memberRepository() {
+        // 트래픽의 50%는 새로운 구현체 사용
+        if (Math.random() < 0.5) {
+            return new NewJpaMemberRepository();  // 새 버전
+        } else {
+            return new OldJpaMemberRepository();  // 기존 버전
+        }
+    }
+}
+```
+
+---
+
+#### 다이어그램: 의존관계 흐름
+
+```
+[SpringConfig가 의존관계를 조립]
+
+SpringConfig
+    │
+    ├─ @Bean memberService()
+    │    └─ new MemberService(memberRepository())
+    │             ↑
+    │             │ 주입
+    │             │
+    └─ @Bean memberRepository()
+         └─ return new MemoryMemberRepository()
+              (또는 JpaMemberRepository)
+              ↑
+              │ 이 한 줄만 바꾸면 됨!
+
+
+[MemberService는 변경 없음]
+
+@Service (제거됨 - SpringConfig에서 관리)
+public class MemberService {
+    private final MemberRepository memberRepository;
+
+    public MemberService(MemberRepository memberRepository) {
+        this.memberRepository = memberRepository;
+        // 어떤 구현체가 들어오든 상관없음!
+        // 인터페이스만 의존
+    }
+}
+```
+
+---
+
+#### 핵심 정리
+
+SpringConfig 방식의 장점:
+1. **구현체 교체가 쉬움**: 한 줄만 수정
+2. **기존 코드 보호**: Service, Controller 수정 불필요
+3. **OCP 준수**: 확장에는 열려있고, 수정에는 닫혀있음
+4. **명시적 설정**: 어떤 구현체를 쓰는지 한눈에 파악
+5. **Git Conflict 최소화**: 한 파일만 수정하므로 충돌 적음
 
 ---
 
@@ -1858,6 +2435,205 @@ public class MemoryMemberRepository implements MemberRepository { }
 | **유연성** | △ 낮음 (구현체 교체 시 코드 수정) | ✅ 높음 (설정만 변경) |
 | **가독성** | ✅ 클래스만 보면 됨 | △ 설정 클래스도 봐야 함 |
 | **사용 사례** | 일반적인 업무 로직 빈 | 기술 지원 빈, 다형성 활용 |
+
+---
+
+#### 구현체 교체 시나리오 상세 비교
+
+SpringConfig.java 주석에서:
+> "컴포넌트 스캔을 사용하면 여러 코드를 바꿔야 한다."
+
+**시나리오**: MemoryMemberRepository에서 JpaMemberRepository로 교체
+
+**방법 1: 컴포넌트 스캔 방식의 문제**
+
+```java
+// 1단계: MemoryMemberRepository.java 수정
+@Repository  // ← 이 어노테이션을 제거해야 함!
+public class MemoryMemberRepository implements MemberRepository {
+    // ...
+}
+
+// 2단계: JpaMemberRepository.java 수정
+@Repository  // ← 이 어노테이션을 추가해야 함!
+public class JpaMemberRepository implements MemberRepository {
+    // ...
+}
+
+// 문제점:
+// - 2개의 파일을 수정해야 함
+// - @Repository를 잘못 제거/추가하면 빈이 중복 등록되거나 등록 안 될 수 있음
+// - Git에서 여러 파일 수정으로 conflict 가능성 증가
+// - 실수 가능성 높음
+```
+
+**방법 2: 수동 빈 등록 방식의 장점**
+
+```java
+// SpringConfig.java만 수정 (단 1줄!)
+@Configuration
+public class SpringConfig {
+
+    @Bean
+    public MemberRepository memberRepository() {
+        // return new MemoryMemberRepository();  // 이전
+        return new JpaMemberRepository();         // 이후
+        // 이 한 줄만 바꾸면 끝!
+    }
+
+    @Bean
+    public MemberService memberService() {
+        return new MemberService(memberRepository());
+        // 이 코드는 전혀 수정하지 않음!
+    }
+}
+
+// 장점:
+// - 1개의 파일만 수정
+// - 1줄만 변경
+// - 다른 팀원의 코드와 conflict 없음
+// - 변경 이력 추적 용이
+// - 실수 가능성 낮음
+```
+
+---
+
+#### 실무 사례: 점진적 DB 전환
+
+**상황**: 레거시 시스템을 JDBC에서 JPA로 전환하는 프로젝트
+
+**컴포넌트 스캔 방식:**
+
+```java
+// 문제: 한 번에 모든 Repository를 바꿔야 함
+@Repository
+public class MemberJdbcRepository { }  // 기존
+
+@Repository
+public class MemberJpaRepository { }   // 신규
+
+// ❌ 둘 다 @Repository가 있으면 충돌!
+// → 한 번에 전환해야 함 (위험!)
+```
+
+**수동 빈 등록 방식:**
+
+```java
+@Configuration
+public class SpringConfig {
+
+    @Value("${feature.use-jpa}")
+    private boolean useJpa;
+
+    @Bean
+    public MemberRepository memberRepository() {
+        if (useJpa) {
+            return new JpaMemberRepository();    // 점진적으로 전환
+        } else {
+            return new JdbcMemberRepository();   // 기존 방식 유지
+        }
+    }
+}
+
+// ✅ 설정만 바꾸면 즉시 롤백 가능!
+// application.yml:
+//   feature.use-jpa: false  ← 문제 발생 시 즉시 롤백
+```
+
+---
+
+#### 팀 협업 관점
+
+**컴포넌트 스캔 방식:**
+
+```
+팀원 A: MemoryMemberRepository.java 수정
+팀원 B: JpaMemberRepository.java 수정
+팀원 C: MemberService.java 수정 (혹시 모를 의존성 수정)
+
+Git Merge:
+  ❌ Conflict 발생 가능성 높음
+  ❌ 여러 파일 Review 필요
+  ❌ 통합 테스트 필수
+```
+
+**수동 빈 등록 방식:**
+
+```
+팀원 A: SpringConfig.java만 수정 (1줄)
+
+Git Merge:
+  ✅ Conflict 가능성 낮음
+  ✅ 1개 파일만 Review
+  ✅ 변경 범위 명확
+```
+
+---
+
+#### 시각화: 변경 전파 범위
+
+```
+[컴포넌트 스캔 방식 - 변경 범위가 넓음]
+
+MemoryMemberRepository.java
+  ↓ @Repository 제거
+  ❌ 수정 필요
+
+JpaMemberRepository.java
+  ↓ @Repository 추가
+  ❌ 수정 필요
+
+(선택적으로)
+MemberService.java
+  ↓ 혹시 모를 수정
+  ❌ 확인 필요
+
+
+[수동 빈 등록 방식 - 변경 범위가 좁음]
+
+SpringConfig.java
+  ↓ 1줄만 수정
+  ✅ 수정 완료
+
+MemoryMemberRepository.java
+  ✅ 수정 없음
+
+JpaMemberRepository.java
+  ✅ 수정 없음
+
+MemberService.java
+  ✅ 수정 없음
+```
+
+---
+
+#### 롤백(Rollback) 용이성
+
+**컴포넌트 스캔:**
+
+```bash
+# JPA로 전환 후 문제 발생!
+# 롤백 방법:
+git revert <commit-hash>
+# → 여러 파일 변경사항 롤백
+# → 혹시 중간에 다른 커밋이 있었다면? 복잡!
+```
+
+**수동 빈 등록:**
+
+```bash
+# JPA로 전환 후 문제 발생!
+# 롤백 방법 1: Git
+git revert <commit-hash>
+# → 1개 파일만 롤백 (간단!)
+
+# 롤백 방법 2: 설정 변경
+# application.yml에서 feature.use-jpa: false
+# → 코드 변경 없이 즉시 롤백!
+
+# 롤백 방법 3: 코드에서 1줄만 수정
+return new MemoryMemberRepository();  // 이전 버전으로
+```
 
 ---
 
@@ -2011,7 +2787,277 @@ public class SpringConfig {
 
 ---
 
-### 6.7 요약: 수동 빈 등록
+### 6.7 스프링 컨테이너 관리와 @Autowired의 관계
+
+이 섹션에서는 **@Autowired가 언제 동작하고 언제 동작하지 않는지**를 이해합니다.
+
+#### @Autowired는 언제 동작하는가?
+
+MemberService.java의 주석에서:
+> "이거 만약에 @Autowired를 했는데 SpringConfig에서 관리를 안한다면?"
+> "→ 당연히 안먹는다."
+> "→ 멤버 서비스가 스프링에 등록이 되고 스프링 관리를 해야 스프링이 @Autowired도 적용할 수 있다."
+
+**핵심 원리:**
+
+@Autowired가 동작하려면 **두 가지 조건**이 필요합니다:
+
+1. **조건 1: 클래스 자체가 스프링 빈으로 등록되어야 함**
+   - 컴포넌트 스캔(@Service, @Controller, @Repository) 또는
+   - 수동 등록(@Bean)
+
+2. **조건 2: 주입 대상도 스프링 빈이어야 함**
+
+---
+
+#### 코드 예시: @Autowired가 동작하는 경우
+
+```java
+// ✅ 정상 동작: SpringConfig에서 MemberService를 관리
+@Configuration
+public class SpringConfig {
+    @Bean
+    public MemberService memberService() {
+        return new MemberService(memberRepository());
+        // 스프링이 MemberService를 빈으로 등록
+    }
+
+    @Bean
+    public MemberRepository memberRepository() {
+        return new MemoryMemberRepository();
+    }
+}
+
+public class MemberService {
+    private final MemberRepository memberRepository;
+
+    @Autowired  // ✅ 동작함! (MemberService가 스프링 빈이므로)
+    public MemberService(MemberRepository memberRepository) {
+        this.memberRepository = memberRepository;
+    }
+}
+```
+
+**왜 동작하는가?**
+- MemberService가 SpringConfig의 @Bean으로 등록됨
+- → 스프링이 관리하는 빈
+- → @Autowired 동작!
+
+---
+
+#### 코드 예시: @Autowired가 동작하지 않는 경우
+
+MemberService.java의 주석에서:
+> "MemberService memberService = new MemberService();"
+> "new해서 직접 MemberService를 생성하는 경우에도, @Autowired가 동작하지 않는다."
+> "→ 내가 직접 생성한 거니까!"
+> "→ 스프링 컨테이너에 올라가는 것들만 이 @Autowired 기능이 동작을 한다."
+
+```java
+// ❌ @Autowired 동작 안 함: new로 직접 생성
+public class SomeController {
+    public void someMethod() {
+        MemberService memberService = new MemberService();
+        // → 내가 직접 new로 생성
+        // → 스프링이 관리하지 않음
+        // → @Autowired 무시됨!
+        // → memberRepository가 null이 됨!
+
+        memberService.join(member);  // NullPointerException 발생!
+    }
+}
+```
+
+**왜 동작하지 않는가?**
+- `new MemberService()`로 직접 생성
+- → 스프링 컨테이너가 관리하지 않음
+- → @Autowired를 처리할 주체가 없음
+- → 의존성 주입 안 됨!
+
+---
+
+#### 실무 함정: 스프링 빈이 아닌 클래스에서 @Autowired 사용
+
+```java
+// ❌ 흔한 실수: 일반 클래스에서 @Autowired 사용
+public class MyUtil {  // @Component가 없음!
+    @Autowired
+    private MemberService memberService;  // 동작 안 함!
+
+    public void doSomething() {
+        memberService.join(member);  // NullPointerException!
+    }
+}
+
+// 해결 방법 1: @Component 추가
+@Component  // 스프링 빈으로 등록!
+public class MyUtil {
+    @Autowired
+    private MemberService memberService;  // 이제 동작함!
+}
+
+// 해결 방법 2: 생성자로 직접 주입
+public class MyUtil {
+    private final MemberService memberService;
+
+    public MyUtil(MemberService memberService) {
+        this.memberService = memberService;  // 직접 주입
+    }
+}
+```
+
+---
+
+#### 시각화: 스프링 컨테이너 관리 여부
+
+```
+[스프링 컨테이너]
+┌──────────────────────────────────────┐
+│                                      │
+│  MemberService (빈)                  │ ← @Autowired 동작 ✅
+│    @Autowired로 주입됨                │
+│    ↓                                 │
+│  MemberRepository (빈)               │
+│                                      │
+└──────────────────────────────────────┘
+         ↑
+         │ 스프링이 관리
+         │
+
+
+[컨테이너 밖 - 개발자가 직접 생성]
+┌──────────────────────────────────────┐
+│                                      │
+│  new MemberService()                 │ ← @Autowired 무시 ❌
+│    (개발자가 직접 생성)                │
+│    → 스프링이 관리하지 않음             │
+│    → @Autowired 동작하지 않음          │
+│    → memberRepository가 null!        │
+│                                      │
+└──────────────────────────────────────┘
+```
+
+---
+
+#### 실전 예시: Test 코드
+
+```java
+// ❌ @Autowired가 동작하지 않는 테스트
+@Test
+void 테스트_실패() {
+    MemberService memberService = new MemberService();
+    // new로 직접 생성 → 스프링 관리 안 함
+    // → @Autowired 동작 안 함
+    // → memberRepository가 null
+
+    Member member = new Member();
+    memberService.join(member);  // NullPointerException!
+}
+
+// ✅ 올바른 방법 1: 생성자로 직접 주입
+@Test
+void 테스트_성공_1() {
+    MemberRepository repository = new MemoryMemberRepository();
+    MemberService memberService = new MemberService(repository);
+    // 생성자로 직접 주입 → @Autowired 불필요
+
+    Member member = new Member();
+    memberService.join(member);  // 정상 동작!
+}
+
+// ✅ 올바른 방법 2: 스프링 컨테이너 사용
+@SpringBootTest
+class MemberServiceTest {
+    @Autowired
+    MemberService memberService;  // 스프링이 주입
+    // → 스프링 컨테이너가 관리하므로 @Autowired 동작!
+
+    @Test
+    void 테스트_성공_2() {
+        Member member = new Member();
+        memberService.join(member);  // 정상 동작!
+    }
+}
+```
+
+---
+
+#### 핵심 정리
+
+**@Autowired 동작 조건:**
+
+| 조건 | 설명 | 예시 |
+|------|------|------|
+| **빈 등록** | 클래스가 스프링 빈으로 등록되어야 함 | @Service, @Bean 사용 |
+| **컨테이너 관리** | 스프링 컨테이너가 생성한 객체여야 함 | new로 직접 생성 ❌ |
+| **주입 대상** | 주입할 객체도 스프링 빈이어야 함 | memberRepository도 빈 |
+
+**자주 하는 실수:**
+
+```java
+// ❌ 실수 1: @Component 없이 @Autowired 사용
+public class MyClass {  // @Component 없음!
+    @Autowired
+    private MemberService service;  // 동작 안 함!
+}
+
+// ❌ 실수 2: new로 생성한 객체에 @Autowired 기대
+MemberService service = new MemberService();
+// service 내부의 @Autowired가 동작할 거라 기대 → 안 됨!
+
+// ❌ 실수 3: 스프링 빈이 아닌 대상을 주입
+@Service
+public class MyService {
+    @Autowired
+    private MyUtil myUtil;  // MyUtil이 빈이 아니면 에러!
+}
+```
+
+**올바른 사용:**
+
+```java
+// ✅ 올바른 방법 1: 컴포넌트 스캔
+@Service
+public class MemberService {
+    @Autowired
+    public MemberService(MemberRepository repository) {
+        // 동작함! (MemberService가 빈이므로)
+    }
+}
+
+// ✅ 올바른 방법 2: 수동 빈 등록
+@Configuration
+public class SpringConfig {
+    @Bean
+    public MemberService memberService() {
+        return new MemberService(memberRepository());
+        // 동작함! (SpringConfig에서 관리하므로)
+    }
+}
+
+// ✅ 올바른 방법 3: 순수 자바 (테스트용)
+@Test
+void 테스트() {
+    MemberRepository repository = new MemoryMemberRepository();
+    MemberService service = new MemberService(repository);
+    // @Autowired 없이 생성자로 직접 주입
+}
+```
+
+**💡 실무 팁:**
+
+MemberService.java 주석의 핵심:
+> "스프링 컨테이너에 올라가는 것들만 이 @Autowired 기능이 동작을 한다."
+
+즉:
+- 스프링이 관리하는 빈: @Autowired 동작 ✅
+- 내가 new로 만든 객체: @Autowired 무시 ❌
+
+**💡 참고**: 의존성 주입의 3가지 방법에 대한 자세한 내용은 [4.2 의존성 주입(DI)의 3가지 방법](#42-의존성-주입di의-3가지-방법)을 참조하세요.
+
+---
+
+### 6.8 요약: 수동 빈 등록
 
 **핵심 정리:**
 - **@Configuration + @Bean**: 자바 코드로 직접 빈 등록
@@ -2038,8 +3084,14 @@ public class SpringConfig {
 
 ### 7.1 전체 흐름 다이어그램
 
+스프링은 빈을 등록하는 방법이 두 가지가 있습니다. 두 방식의 흐름을 비교해봅시다.
+
+---
+
+#### 방식 1: 컴포넌트 스캔 방식 (이전)
+
 ```
-[Spring Boot 애플리케이션 시작 흐름]
+[Spring Boot 애플리케이션 시작 흐름 - 컴포넌트 스캔]
 
 1. main() 메서드 실행
    SpringApplication.run(HelloSpringApplication.class, args);
@@ -2073,6 +3125,215 @@ public class SpringConfig {
 10. 애플리케이션 준비 완료
     웹 요청 대기
 ```
+
+---
+
+#### 방식 2: 수동 빈 등록 방식 (현재 - SpringConfig 사용)
+
+```
+[Spring Boot 애플리케이션 시작 흐름 - SpringConfig 방식]
+
+1. main() 메서드 실행
+   SpringApplication.run(HelloSpringApplication.class, args);
+   ↓
+2. @SpringBootApplication 감지
+   @ComponentScan 실행 (동시에 @Configuration도 스캔)
+   ↓
+3. SpringConfig 클래스 발견
+   @Configuration 처리
+   ↓
+4. @Bean 메서드 실행 (수동 등록)
+   │
+   ├─ memberRepository() 호출
+   │  └─ new MemoryMemberRepository() 생성
+   │  └─ 스프링 컨테이너에 빈 등록
+   │     (빈 이름: "memberRepository")
+   │
+   └─ memberService() 호출
+      └─ memberRepository() 메서드 호출
+      └─ new MemberService(memberRepository) 생성
+      └─ 스프링 컨테이너에 빈 등록
+         (빈 이름: "memberService")
+   ↓
+5. 컴포넌트 스캔으로 @Controller 발견
+   MemberController 빈 등록 시도
+   (Service, Repository는 이미 수동 등록됨)
+   ↓
+6. MemberController 생성자 확인
+   @Autowired 발견
+   MemberService 타입 빈 검색
+   ↓
+7. 의존관계 주입
+   memberController ← memberService (스프링이 주입)
+   memberService ← memberRepository (이미 생성자로 주입됨)
+   ↓
+8. 의존관계 주입 완료
+   memberController → memberService → memberRepository
+   ↓
+9. 애플리케이션 준비 완료
+   웹 요청 대기
+```
+
+---
+
+#### 두 방식의 핵심 차이점
+
+| 단계 | 컴포넌트 스캔 | 수동 등록 (SpringConfig) |
+|------|-------------|------------------------|
+| **빈 발견** | @ComponentScan이 @Service, @Repository 찾음 | @Configuration의 @Bean 메서드 실행 |
+| **빈 생성** | 스프링이 자동으로 new | 개발자가 명시적으로 new |
+| **의존관계 주입** | @Autowired로 자동 | 생성자 파라미터로 명시 |
+| **빈 등록 순서** | 스프링이 결정 (순서 보장 안 됨) | 개발자가 명시 (명확함) |
+| **구현체 교체** | 여러 파일 수정 필요 | SpringConfig 1줄만 수정 |
+
+---
+
+#### 상세 비교: 빈 생성 과정
+
+**컴포넌트 스캔 방식:**
+
+```java
+// 스프링이 자동으로 처리
+@Service
+public class MemberService {
+    @Autowired
+    public MemberService(MemberRepository repository) {
+        // 스프링이 알아서 repository 주입
+    }
+}
+
+// 내부 동작 (의사 코드)
+MemberService memberService = new MemberService(
+    applicationContext.getBean(MemberRepository.class)
+);
+// 스프링이 자동으로 빈을 찾아서 주입
+```
+
+**수동 빈 등록 방식:**
+
+```java
+// 개발자가 명시적으로 처리
+@Configuration
+public class SpringConfig {
+    @Bean
+    public MemberService memberService() {
+        return new MemberService(memberRepository());
+        // 개발자가 직접 의존관계를 명시
+    }
+
+    @Bean
+    public MemberRepository memberRepository() {
+        return new MemoryMemberRepository();
+        // 어떤 구현체를 쓸지 명확하게 지정
+    }
+}
+
+// 개발자가 명시한 대로 동작
+MemberService memberService = new MemberService(
+    memberRepository()  // 개발자가 지정한 메서드 호출
+);
+```
+
+---
+
+#### 시각화: 의존관계 조립 흐름
+
+```
+[컴포넌트 스캔 - 스프링이 자동으로 조립]
+
+┌──────────────────────────────────────┐
+│ 스프링 컨테이너                        │
+│                                       │
+│ 1. @Service 발견 → MemberService 생성  │
+│    @Autowired 확인                    │
+│    ↓                                  │
+│ 2. MemberRepository 타입 빈 검색       │
+│    (어떤 구현체인지 스프링이 결정)       │
+│    ↓                                  │
+│ 3. 자동 주입                           │
+│    memberService ← 찾은 빈            │
+│                                       │
+└──────────────────────────────────────┘
+
+
+[수동 빈 등록 - 개발자가 명시적으로 조립]
+
+┌──────────────────────────────────────┐
+│ SpringConfig                          │
+│                                       │
+│ 1. memberRepository() 호출            │
+│    return new MemoryMemberRepository();
+│    (개발자가 명시: 메모리 구현체 사용)  │
+│    ↓                                  │
+│ 2. memberService() 호출               │
+│    return new MemberService(          │
+│        memberRepository()             │
+│    );                                 │
+│    (개발자가 명시: repository 주입)    │
+│    ↓                                  │
+│ 3. 스프링 컨테이너에 등록              │
+│    (개발자가 조립한 대로)               │
+│                                       │
+└──────────────────────────────────────┘
+```
+
+---
+
+#### 실행 로그 비교
+
+**컴포넌트 스캔 방식 로그:**
+
+```
+Creating shared instance of singleton bean 'memberService'
+Creating shared instance of singleton bean 'memoryMemberRepository'
+Autowiring by type from bean name 'memberService' to bean named 'memoryMemberRepository'
+```
+→ 스프링이 자동으로 타입을 찾아서 주입 ("Autowiring by type")
+
+**수동 빈 등록 방식 로그:**
+
+```
+Creating shared instance of singleton bean 'springConfig'
+Creating shared instance of singleton bean 'memberRepository'
+Creating shared instance of singleton bean 'memberService'
+```
+→ SpringConfig의 @Bean 메서드 순서대로 생성
+→ 의존관계가 이미 생성자로 명시되어 있으므로 "Autowiring by type" 로그 없음
+
+---
+
+#### 어떤 방식을 선택해야 하는가?
+
+**컴포넌트 스캔 권장:**
+- ✅ 일반적인 비즈니스 로직 (Controller, Service, Repository)
+- ✅ 구현체가 거의 바뀌지 않는 경우
+- ✅ 팀원들이 코드만 보고 빠르게 이해해야 하는 경우
+
+**수동 빈 등록 권장:**
+- ✅ 기술 지원 빈 (DataSource, AOP, 트랜잭션 매니저 등)
+- ✅ 구현체를 자주 교체해야 하는 경우 (예: Repository 구현체)
+- ✅ 환경별로 다른 빈을 사용해야 하는 경우
+- ✅ 설정이 복잡하고 명시적으로 관리하고 싶은 경우
+
+**💡 실무 팁:**
+
+우리 프로젝트처럼 Repository 구현체를 자주 바꿔야 한다면:
+```java
+@Configuration
+public class SpringConfig {
+    @Bean
+    public MemberRepository memberRepository() {
+        // return new MemoryMemberRepository();  // 개발
+        // return new JdbcMemberRepository();    // JDBC
+        return new JpaMemberRepository();        // JPA
+        // 이 한 줄만 바꾸면 전체 시스템이 바뀜!
+    }
+}
+```
+
+이것이 SpringConfig를 사용하는 이유입니다!
+
+**💡 참고**: SpringConfig를 사용하는 이유와 장점에 대한 자세한 내용은 [6.1 @Configuration과 @Bean](#61-configuration과-bean)을 참조하세요.
 
 ---
 
