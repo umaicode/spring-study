@@ -1,13 +1,17 @@
 package hello.hello_spring.controller;
 
+import hello.hello_spring.domain.Member;
 import hello.hello_spring.service.MemberService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+
+import java.util.List;
 
 @Controller
 public class MemberController {
-
-
 
     // Dependency Injection
     // 1. 필드 주입 방식
@@ -34,4 +38,38 @@ public class MemberController {
 //    public MemberController(MemberService memberService) {
 //        this.memberservice = memberService;
 //    }
+
+    private MemberService memberService;
+
+    @Autowired
+    public MemberController(MemberService memberService) {
+        this.memberService = memberService;
+    }
+
+    // 얘는 createMemberForm으로 이동
+    @GetMapping("/members/new")
+    public String createForm() {
+        return "members/createMemberForm";
+    }
+
+    @PostMapping("/members/new")
+    public String create(MemberForm form) {
+        Member member = new Member();
+        member.setName(form.getName());
+
+//        System.out.println("member = " + member.getName());
+
+        memberService.join(member);
+
+        return "redirect:/";
+    }
+
+    // memory 안에 있기 때문에 java를 내려버리면 당연히 회원 데이터가 다 사라진다.
+    // 우리는 이 데이터들을 파일이나 아니면 데이터베이스에 저장해야 한다.
+    @GetMapping("/members")
+    public String list(Model model) {
+        List<Member> members = memberService.findMembers();
+        model.addAttribute("members", members);
+        return "members/memberList";
+    }
 }
