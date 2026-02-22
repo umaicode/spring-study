@@ -38,3 +38,7 @@ out/
 
 ### docs ###
 docs/
+
+### ai ###
+.claude
+.serena

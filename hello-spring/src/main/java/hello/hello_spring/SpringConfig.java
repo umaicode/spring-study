@@ -1,10 +1,14 @@
 package hello.hello_spring;
 
-import hello.hello_spring.repository.MemberRepository;
-import hello.hello_spring.repository.MemoryMemberRepository;
+import hello.hello_spring.domain.Member;
+import hello.hello_spring.repository.*;
 import hello.hello_spring.service.MemberService;
+import jakarta.persistence.EntityManager;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import javax.sql.DataSource;
 
 // 이거 왜 만들까?
 // 우리는 현재 멤버 리포지토리를 설계할 때, 아직 데이터 저장소가 선정되지 않았다는 가상의 시나리오가 존재한다.
@@ -22,14 +26,53 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class SpringConfig {
 
-    @Bean
-    public MemberService memberService() {
-        // MemberService()에서 ()안에 커서를 가져다댄 후, cmd + p를 누르면 뭐가 필요한 지 알 수 있다.
-        return new MemberService(memberRepository());
+    // configuration 한 것도 spring bean으로 관리가 되기 때문에
+    // spring boot가 DataSource를 application.properties를 보고 스프링이 자체적으로 빈도 생성해준다.
+
+//    private DataSource dataSource;
+//
+//    @Autowired
+//    public SpringConfig(DataSource dataSource) {
+//        this.dataSource = dataSource;
+//    }
+
+//    private EntityManager em;
+//
+//    @Autowired
+//    public SpringConfig(EntityManager em) {
+//        this.em = em;
+//    }
+
+//    @Bean
+//    public MemberService memberService() {
+//        // MemberService()에서 ()안에 커서를 가져다댄 후, cmd + p를 누르면 뭐가 필요한 지 알 수 있다.
+//        return new MemberService(memberRepository());
+//    }
+
+//    @Bean
+//    public MemberRepository memberRepository() {
+//        return new MemoryMemberRepository();
+    // spring을 쓰는 이유: 객체 지향 설계가 좋다.
+    // -> 소위 다형성을 활용한다고 말한다.
+    // 인터페이스를 두고 구현체를 바꿔끼기를 할 수 있다.
+    // spring container가 이걸 지원해준다. -> dependencies injection 때문에 굉장히 편리하다.
+    // 객체지향의 진짜 매력: 인터페이스에서 구현체를 바꾸면서도 기존 코드를 변경하지 않고 바꿀 수 있는 것!
+//        return new JdbcMemberRepository(dataSource);
+//        return new JdbcTemplateMemberRepository(dataSource);
+//        return new JpaMemberRepository(em);
+
+//    }
+
+    // 스프링 데이터 JPA는 그냥 injection 받으면 된다.
+    private final MemberRepository memberRepository;
+
+    @Autowired
+    public SpringConfig(MemberRepository memberRepository) {
+        this.memberRepository = memberRepository;
     }
 
     @Bean
-    public MemberRepository memberRepository() {
-        return new MemoryMemberRepository();
+    public MemberService memberService() {
+        return new MemberService(memberRepository);
     }
 }
