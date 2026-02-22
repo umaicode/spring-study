@@ -65,9 +65,22 @@ public class MemberService {
 //            throw new IllegalStateException("이미 존재하는 회원입니다.");
 //        });
 
+//        long start = System.currentTimeMillis();
+//
+//        try {
+//            validateDuplicateMember(member);    // 중복 회원 검증
+//            memberRepository.save(member);
+//            return member.getId();
+//        } finally {
+//            long finish = System.currentTimeMillis();
+//            long timeMs = finish - start;
+//            System.out.println("join = " + timeMs + "ms");
+//        }
+
         validateDuplicateMember(member);    // 중복 회원 검증
         memberRepository.save(member);
         return member.getId();
+
     }
 
     // findByName을 통해서 로직이 쭉 나온다? -> method로 뽑는 것이 좋다!
@@ -81,7 +94,20 @@ public class MemberService {
     /**
      * 전체 회원 조회
      */
+    // 보통 처음 실행될 때는 시간이 꽤 걸린다.
+    // 그 이후 부터는 빠르게 진행된다.
+    // 그래서 실제 운영에서는 처음에 서버 올리고 이것저것 호출해서 웜업한다.
     public List<Member> findMembers() {
+//        long start = System.currentTimeMillis();
+//
+//        try{
+//            return memberRepository.findAll();
+//        } finally {
+//            long finish = System.currentTimeMillis();
+//            long timeMs = finish - start;
+//            System.out.println("findMembers " + timeMs + "ms");
+//        }
+
         return memberRepository.findAll();
     }
 
