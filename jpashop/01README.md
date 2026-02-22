@@ -1,6 +1,6 @@
 # 프로젝트 환경설정
 
-> Spring Boot + JPA 기반 쇼핑몰 프로젝트의 첫걸음 — 의존성 설정과 Lombok 동작 확인
+> Spring Boot + JPA 기반 쇼핑몰 프로젝트의 첫걸음 — 의존성 설정, Lombok 동작 확인, Thymeleaf View 연동
 
 ---
 
@@ -19,7 +19,7 @@
 **인프런 - 김영한의 "실전! 스프링 부트와 JPA 활용 1 - 웹 애플리케이션 개발"**
 
 이 문서는 강의의 "프로젝트 환경설정" 섹션을 학습하며 작성한 노트입니다.
-`start.spring.io`로 프로젝트를 생성하고, 핵심 의존성을 파악한 뒤, Lombok이 정상 동작하는지 확인하는 것까지 다룹니다.
+`start.spring.io`로 프로젝트를 생성하고, 핵심 의존성을 파악한 뒤, Lombok 동작 확인과 Thymeleaf를 이용한 첫 View 연동까지 다룹니다.
 Hello-spring 입문 강의와 달리 이번에는 **JPA + H2** 가 핵심 스택으로 추가됩니다.
 
 ---
@@ -45,6 +45,11 @@ Hello-spring 입문 강의와 달리 이번에는 **JPA + H2** 가 핵심 스택
    - 현재 최소 설정 상태 파악
    - 향후 추가될 H2 / JPA 설정 예고
 
+5. **View 환경 설정 - Thymeleaf + devtools**
+   - `HelloController` + `hello.html` 로 Spring MVC 동작 흐름 확인
+   - 정적 컨텐츠(`index.html`)와 템플릿 엔진(`templates/`) 디렉터리 역할 구분
+   - `spring-boot-devtools`로 코드 변경 시 서버 재시작 없이 반영
+
 ---
 
 ## 🗺️ 학습 로드맵
@@ -65,12 +70,17 @@ Hello-spring 입문 강의와 달리 이번에는 **JPA + H2** 가 핵심 스택
           ↓
 4. 기본 설정 확인
    application.properties 현재 상태 파악
-   → H2 / JPA 설정은 다음 챕터부터 추가 예정
+          ↓
+5. View 환경 설정
+   HelloController → hello.html (Thymeleaf)
+   index.html (정적 컨텐츠) / devtools 추가
+   → Spring MVC 요청-응답 흐름 확인
 ```
 
 **왜 이 순서인가?**
 - **토대 먼저**: 코드를 짜기 전에 어떤 라이브러리가 들어있는지 먼저 파악합니다.
 - **Lombok 검증**: JPA 엔티티에서 Lombok을 많이 쓰게 되므로, 초반에 동작 여부를 확인합니다.
+- **View 연동으로 마무리**: 환경 설정의 끝은 실제로 화면이 뜨는 것을 확인하는 것입니다.
 
 ---
 
@@ -80,8 +90,9 @@ Hello-spring 입문 강의와 달리 이번에는 **JPA + H2** 가 핵심 스택
 2. [라이브러리 살펴보기](#2-라이브러리-살펴보기)
 3. [Lombok 설정 확인](#3-lombok-설정-확인)
 4. [프로젝트 기본 설정](#4-프로젝트-기본-설정)
-5. [Best Practice 및 주의사항](#5-best-practice-및-주의사항)
-6. [부록](#6-부록)
+5. [View 환경 설정](#5-view-환경-설정)
+6. [Best Practice 및 주의사항](#6-best-practice-및-주의사항)
+7. [부록](#7-부록)
 
 ---
 
@@ -159,6 +170,10 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+
+    // cache 이런 것도 다 없애고 reloading도 되게 만들어 준다!
+    implementation 'org.springframework.boot:spring-boot-devtools'
+
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.h2database:h2'
     annotationProcessor 'org.projectlombok:lombok'
@@ -183,6 +198,7 @@ tasks.named('test') {
 | `spring-boot-starter-thymeleaf` | 템플릿 엔진 | Thymeleaf, Spring 통합 |
 | `spring-boot-starter-validation` | 입력값 검증 | Hibernate Validator, Jakarta Validation |
 | `spring-boot-starter-webmvc` | 웹 MVC | Spring MVC, Tomcat |
+| `spring-boot-devtools` | 개발 편의 도구 | 클래스 변경 시 자동 재시작, 캐시 비활성화 |
 | `lombok` (compileOnly) | 코드 생성 | 컴파일 타임만 필요 (런타임 불필요) |
 | `h2` (runtimeOnly) | H2 DB 드라이버 | 런타임에만 필요 |
 
@@ -343,7 +359,141 @@ class JpashopApplicationTests {
 
 ---
 
-## 5. Best Practice 및 주의사항
+## 5. View 환경 설정
+
+### 5.1 Spring MVC 요청-응답 흐름
+
+```
+[View 환경 설정 동작 흐름]
+
+브라우저 GET /hello
+      ↓
+DispatcherServlet (스프링 MVC 프론트 컨트롤러)
+      ↓
+HelloController.hello(Model model)
+      ↓
+model.addAttribute("data", "hello!!!")
+return "hello"   ← 뷰 이름 반환
+      ↓
+Thymeleaf ViewResolver
+      ↓
+templates/hello.html 렌더링
+  th:text="'안녕하세요. ' + ${data}"  →  "안녕하세요. hello!!!"
+      ↓
+브라우저에 HTML 응답
+```
+
+### 5.2 HelloController.java
+
+```java
+package jpabook.jpashop;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@Controller
+public class HelloController {
+
+    @GetMapping("hello")
+    public String hello(Model model) {
+        // springUI에 있는 model이란 얘가 어떤 데이터를 실어서 view에 넘길 수 있다.
+        // Controller에서 데이터를 view로 넘길 수 있다.
+        // return은 화면 이름이다.
+        model.addAttribute("data", "hello!!!");
+        return "hello";
+    }
+}
+```
+
+- `Model`에 `"data"` 키로 값을 넣으면 Thymeleaf 템플릿에서 `${data}`로 꺼낼 수 있습니다.
+- `return "hello"`는 뷰 이름이며, Thymeleaf ViewResolver가 `templates/hello.html`을 찾아 렌더링합니다.
+
+### 5.3 정적 컨텐츠 vs 템플릿 엔진
+
+| 구분 | 경로 | 특징 |
+|------|------|------|
+| **정적 컨텐츠** | `src/main/resources/static/` | 서버 처리 없이 파일 그대로 응답 |
+| **템플릿 엔진** | `src/main/resources/templates/` | 서버에서 동적으로 렌더링 후 응답 |
+
+**index.html (정적 컨텐츠 — 웰컴 페이지)**
+
+```html
+<!-- 완전 순수한 html을 띄우고 싶을 때(정적 컨텐츠는 static) -->
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Hello</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+</head>
+<body>
+Hello
+<a href="/hello">hello</a>
+</body>
+</html>
+```
+
+- `static/index.html`은 스프링 부트가 자동으로 웰컴 페이지(`/`)로 서빙합니다.
+- 컨트롤러를 거치지 않고 파일 그대로 응답됩니다.
+
+**hello.html (Thymeleaf 템플릿)**
+
+```html
+<!-- 템플릿 엔진을 가지고 뭔가 렌더링되어야 할 것들(templates) -->
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Hello</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+</head>
+<body>
+<p th:text="'안녕하세요. ' + ${data}" >안녕하세요. 손님</p>
+</body>
+</html>
+```
+
+- `th:text`는 Thymeleaf 속성으로, `${data}` 값을 서버에서 주입합니다.
+- 순수 HTML로 열면 `안녕하세요. 손님`이 보이고, 서버에서 렌더링하면 `안녕하세요. hello!!!`가 출력됩니다.
+- 이처럼 Thymeleaf는 서버 없이도 HTML 파일 자체를 열 수 있는 **Natural Templates** 방식입니다.
+
+### 5.4 spring-boot-devtools
+
+```groovy
+// build.gradle
+// cache 이런 것도 다 없애고 reloading도 되게 만들어 준다!
+implementation 'org.springframework.boot:spring-boot-devtools'
+```
+
+**devtools가 해결하는 문제:**
+
+```
+[devtools 없을 때]
+템플릿(hello.html) 수정
+      ↓
+서버 재시작 필요 (수동)
+      ↓
+변경 반영
+
+[devtools 있을 때]
+템플릿(hello.html) 수정 + IntelliJ Recompile (Ctrl+Shift+F9)
+      ↓
+자동 재시작
+      ↓
+변경 반영 (훨씬 빠름)
+```
+
+| devtools 기능 | 설명 |
+|--------------|------|
+| **자동 재시작** | 클래스패스 변경 감지 시 애플리케이션 자동 재시작 |
+| **캐시 비활성화** | Thymeleaf 등 템플릿 캐시를 개발 중 꺼줌 |
+| **LiveReload** | 브라우저 자동 새로고침 (LiveReload 플러그인 필요) |
+
+> 운영 환경(JAR 배포)에서는 devtools가 자동으로 비활성화됩니다.
+> 개발 전용 라이브러리이므로 성능이나 보안 걱정 없이 추가할 수 있습니다.
+
+---
+
+## 6. Best Practice 및 주의사항
 
 ### 5.1 Lombok 관련
 
@@ -384,20 +534,25 @@ runtimeOnly 'com.h2database:h2'
 
 ---
 
-## 6. 부록
+## 7. 부록
 
-### 6.1 프로젝트 구조 (현재 상태)
+### 7.1 프로젝트 구조 (현재 상태)
 
 ```
 jpashop/
-├── build.gradle                            ← 의존성 관리
+├── build.gradle                            ← 의존성 관리 (devtools 추가)
 ├── src/
 │   ├── main/
 │   │   ├── java/
 │   │   │   └── jpabook/jpashop/
 │   │   │       ├── Hello.java              ← Lombok 테스트용 (임시)
+│   │   │       ├── HelloController.java    ← View 환경 설정 확인용
 │   │   │       └── JpashopApplication.java ← 메인 클래스 + Lombok 확인 코드
 │   │   └── resources/
+│   │       ├── static/
+│   │       │   └── index.html             ← 웰컴 페이지 (정적 컨텐츠)
+│   │       ├── templates/
+│   │       │   └── hello.html             ← Thymeleaf 템플릿
 │   │       └── application.properties     ← 최소 설정 (이름만)
 │   └── test/
 │       └── java/
@@ -406,16 +561,18 @@ jpashop/
 └── 01README.md                             ← 이 문서 (임시 기록)
 ```
 
-### 6.2 핵심 어노테이션 정리
+### 7.2 핵심 어노테이션 정리
 
 | 어노테이션 | 위치 | 역할 |
 |-----------|------|------|
 | `@SpringBootApplication` | 클래스 | 스프링 부트 자동 설정 + 컴포넌트 스캔 시작점 |
 | `@Getter` | 클래스/필드 | Lombok: 모든 필드(또는 해당 필드)의 getter 자동 생성 |
 | `@Setter` | 클래스/필드 | Lombok: 모든 필드(또는 해당 필드)의 setter 자동 생성 |
+| `@Controller` | 클래스 | Spring MVC 컨트롤러 선언, 뷰 이름 반환 |
+| `@GetMapping` | 메서드 | HTTP GET 요청을 해당 메서드에 매핑 |
 | `@SpringBootTest` | 테스트 클래스 | 스프링 컨테이너 전체를 띄워 통합 테스트 실행 |
 
-### 6.3 다음 챕터 예고
+### 7.3 다음 챕터 예고
 
 챕터 2에서는 **도메인 분석 설계**를 진행합니다:
 
@@ -433,7 +590,7 @@ jpashop/
 테이블 설계 → 엔티티 설계 비교
 ```
 
-### 6.4 학습 확인 질문
+### 7.4 학습 확인 질문
 
 1. **Lombok의 `@Getter`가 동작하는 시점은 언제인가?**
    - 런타임이 아닌 **컴파일 타임**. 어노테이션 프로세서가 `.java` → `.class` 변환 시 getter 메서드를 바이트코드에 삽입
@@ -449,6 +606,13 @@ jpashop/
 
 4. **`contextLoads()` 테스트가 본문이 비어도 의미 있는 이유는?**
    - `@SpringBootTest`가 스프링 컨텍스트 전체를 로드하기 때문. 설정 오류나 빈 생성 실패가 있으면 이 테스트가 실패
+
+5. **`static/`과 `templates/` 디렉터리의 차이는?**
+   - `static/`: 파일을 그대로 응답 (컨트롤러 불필요, 서버 처리 없음)
+   - `templates/`: Thymeleaf 같은 템플릿 엔진이 렌더링 후 응답 (컨트롤러에서 뷰 이름 반환)
+
+6. **devtools가 운영 환경에서 자동 비활성화되는 이유는?**
+   - 실행 중인 JAR가 클래스패스에서 devtools 감지 시 자동으로 꺼짐. 개발 전용이므로 별도 설정 없이도 운영 배포에서 안전
 
 ---
 
