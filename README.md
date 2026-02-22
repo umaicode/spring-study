@@ -1,6 +1,6 @@
 # 🚀 spring-study
 
-> 스프링/자바 백엔드 역량을 빠르게 올리기 위해, 여러 강의를 따라가며 실습하고 정리하는 **학습 기록 저장소**입니다.  
+> 스프링/자바 백엔드 역량을 빠르게 올리기 위해, 여러 강의를 따라가며 실습하고 정리하는 **학습 기록 저장소**입니다.
 > 각 강의는 폴더 단위로 분리하며, 강의별 상세 정리는 해당 폴더의 `README.md`에 작성합니다.
 
 <div align="left">
@@ -23,11 +23,21 @@
 ---
 
 ## 📚 강의 목록 (Course Index)
-`hello-spring`
+
+### hello-spring
+
 아래 강의를 따라가며 진행한 **실습 프로젝트 폴더**입니다.
+
 - 플랫폼: 인프런
 - 강의명: [스프링 입문 - 코드로 배우는 스프링 부트, 웹 MVC, DB 접근 기술](https://www.inflearn.com/course/%EC%8A%A4%ED%94%84%EB%A7%81%EB%B6%80%ED%8A%B8-%ED%95%B5%EC%8B%AC%EC%9B%90%EB%A6%AC-%ED%99%9C%EC%9A%A9?cid=330459)
-- 정리 문서: `hello-spring/README.md`
+
+| 챕터 | 주제 | 정리 문서 |
+|------|------|---------|
+| 03 | 스프링 웹 개발 기초 (정적 컨텐츠 / MVC / API / 4계층 아키텍처) | [03README.md](./hello-spring/03README.md) |
+| 04 | 스프링 빈과 의존관계 (IoC / DI / 컴포넌트 스캔 / @Autowired) | [04README.md](./hello-spring/04README.md) |
+| 05 | 회원 관리 예제 - 웹 MVC 개발 (HomeController / GET·POST / PRG 패턴) | [05README.md](./hello-spring/05README.md) |
+| 06 | 스프링 DB 접근 기술 (JDBC → JdbcTemplate → JPA → Spring Data JPA) | [06README.md](./hello-spring/06README.md) |
+| 07 | AOP (공통 관심 사항 분리 / TimeTraceAop / 프록시 원리) | [07README.md](./hello-spring/07README.md) |
 
 ---
 
