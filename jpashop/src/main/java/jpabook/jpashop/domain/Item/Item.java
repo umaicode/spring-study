@@ -1,8 +1,12 @@
 package jpabook.jpashop.domain.Item;
 
 import jakarta.persistence.*;
+import jpabook.jpashop.domain.Category;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.util.ArrayList;
+import java.util.List;
 
 // 추상클래스로 만드는 이유: 구현체를 가지고 갈 것이기 때문에
 // InheritanceType
@@ -23,4 +27,6 @@ public abstract class Item {
     private String name;
     private int price;
     private int stockQuantity;
+
+    private List<Category> categories = new ArrayList<>();
 }
