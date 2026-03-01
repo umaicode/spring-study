@@ -1,21 +1,21 @@
 # 도메인 분석 설계
 
-> 요구사항 분석부터 연관관계 매핑까지 — 실전 쇼핑몰 도메인을 설계하는 법
+> 요구사항 분석부터 엔티티 클래스 구현까지 — 실전 쇼핑몰 도메인을 설계하고 코드로 완성하는 법
 
 ## 📚 강의 출처
 
 **인프런 - 김영한의 "실전! 스프링 부트와 JPA 활용 1 - 웹 애플리케이션 개발"**
 
-이 문서는 강의의 두 번째 챕터인 "도메인 분석 설계"를 학습하며 작성한 노트입니다. 프로젝트 환경이 준비된 후, 본격적으로 코드를 작성하기 전에 **"무엇을 만들지"와 "어떻게 구조를 잡을지"** 를 설계하는 단계입니다. 엔티티 클래스 개발 이전까지의 분석·설계 과정을 다룹니다.
+이 문서는 강의의 두 번째 챕터인 "도메인 분석 설계"를 학습하며 작성한 노트입니다. 프로젝트 환경이 준비된 후, 본격적으로 코드를 작성하기 전에 **"무엇을 만들지"와 "어떻게 구조를 잡을지"** 를 설계하는 단계부터 시작하여, 설계한 내용을 실제 엔티티 클래스로 구현하고, 구현 시 반드시 지켜야 할 주의점까지 전체를 다룹니다.
 
 **이전 챕터(01)와 이 챕터(02)의 관계:**
 
 | 항목 | 01 - 프로젝트 환경설정 | 02 - 도메인 분석 설계 |
 |------|----------------------|---------------------|
-| **목표** | 개발 환경 구성 | 개발 전 설계도 작성 |
+| **목표** | 개발 환경 구성 | 설계도 작성 + 엔티티 구현 |
 | **핵심 질문** | "어떻게 실행하는가?" | "무엇을 어떻게 만들 것인가?" |
-| **결과물** | 동작하는 빈 프로젝트 | 도메인 모델, 테이블 설계, 연관관계 분석 |
-| **다음 단계** | 도메인 설계 | 엔티티 클래스 구현 |
+| **결과물** | 동작하는 빈 프로젝트 | 도메인 모델, 테이블 설계, 연관관계 분석, 엔티티 클래스 구현 |
+| **다음 단계** | 도메인 설계 | 애플리케이션 구현 준비 |
 
 ---
 
@@ -44,11 +44,19 @@
    - 값 타입(`@Embeddable`)과 엔티티 타입의 차이
    - 단방향 vs 양방향 연관관계 선택 기준
 
+6. **엔티티 클래스 구현**
+   - 설계한 도메인 모델을 실제 Java 코드로 작성
+   - JPA 어노테이션을 활용한 매핑 구현 (`@Entity`, `@Embedded`, `@Inheritance` 등)
+
+7. **엔티티 설계 시 구현 주의점**
+   - 모든 연관관계를 LAZY 로딩으로 설정하는 이유
+   - Cascade, 연관관계 편의 메서드, 컬렉션 초기화 원칙
+
 ---
 
 ## 🗺️ 학습 로드맵
 
-이 문서는 **설계 4단계**로 구성되어 있습니다.
+이 문서는 **설계 4단계 → 구현 2단계**로 구성되어 있습니다.
 
 ```
 1. 요구사항 분석
@@ -67,6 +75,14 @@
    - 연관관계 주인 결정
    - 단방향/양방향 선택
    - 각 매핑 어노테이션 정리
+   ↓
+5. 엔티티 클래스 구현
+   - Address, Enum, Member, Item 등 12개 클래스 작성
+   - @Inheritance, @Embeddable, @JoinTable 적용
+   ↓
+6. 구현 시 주의점 적용
+   - LAZY 로딩, Cascade, 편의 메서드, 컬렉션 초기화
+   - 네이밍 전략(SpringPhysicalNamingStrategy)
 ```
 
 **왜 이 순서인가?**
@@ -74,6 +90,7 @@
 - **요구사항 먼저**: 무엇을 만들지 명확해야 설계가 가능합니다.
 - **도메인 모델 → 테이블 순서**: 객체 지향적으로 먼저 설계한 뒤, DB 테이블로 변환합니다.
 - **테이블 설계 후 연관관계 분석**: FK 위치가 결정되어야 JPA 연관관계 주인을 확정할 수 있습니다.
+- **설계 완료 후 구현**: 설계도가 확정되어야 코드를 올바르게 작성할 수 있습니다.
 
 ---
 
@@ -83,8 +100,9 @@
 2. [도메인 모델 설계](#2-도메인-모델-설계)
 3. [테이블 설계 (ERD)](#3-테이블-설계-erd)
 4. [연관관계 매핑 분석](#4-연관관계-매핑-분석)
-5. [설계 핵심 주의점 (Best Practice)](#5-설계-핵심-주의점-best-practice)
-6. [부록](#6-부록)
+5. [엔티티 클래스 개발](#5-엔티티-클래스-개발)
+6. [설계 핵심 주의점 및 구현 시 주의점](#6-설계-핵심-주의점-및-구현-시-주의점)
+7. [부록](#7-부록)
 
 ---
 
@@ -218,7 +236,7 @@
                     │ stockQty: int│          │  List<Item>      │
                     │ categories:  │          │ parent:          │
                     │  List<Cat>   │          │  Category        │◄─ 자기참조
-                    └──────┬───────┘          │ children:        │
+                    └──────┬───────┘          │ child:           │
                            │                  │  List<Category>  │
               ┌────────────┼────────────┐     └──────────────────┘
               │            │            │
@@ -242,6 +260,10 @@
 | Item ↔ Category | M:N | 양방향 | 상품-카테고리 다대다 (중간 테이블) |
 | Category → Category | 1:N | 자기참조 | 카테고리 부모-자식 트리 |
 | Item → Book/Album/Movie | 상속 | - | 단일 테이블 전략(기본) |
+
+> **참고**: 회원 엔티티 분석 그림에서 Order와 Delivery가 단방향 관계로 잘못 그려져 있다. 양방향 관계가 맞다.
+
+> **참고**: 실무에서는 회원이 주문을 참조하지 않고, 주문이 회원을 참조하는 것으로 충분하다. 여기서는 일대다, 다대일의 양방향 연관관계를 설명하기 위해서 `Member.orders`를 추가했다.
 
 ### 2.3 Address - 값 타입 (Embeddable)
 
@@ -480,6 +502,8 @@ ORDER_ITEM.ITEM_ID (FK)  →  OrderItem이 주인
 ORDERS.DELIVERY_ID (FK)  →  Order가 주인
 ```
 
+> **참고**: 연관관계의 주인은 단순히 외래 키를 누가 관리하냐의 문제이지 비즈니스상 우위에 있다고 주인으로 정하면 안된다. 예를 들어 자동차와 바퀴가 있으면, 일대다 관계에서 항상 다쪽에 외래 키가 있으므로 외래 키가 있는 **바퀴를 연관관계의 주인**으로 정하면 된다.
+
 ### 4.2 연관관계 매핑 분석표
 
 | 엔티티 쌍 | 관계 | FK 위치 | 주인 | mappedBy 설정 |
@@ -489,7 +513,7 @@ ORDERS.DELIVERY_ID (FK)  →  Order가 주인
 | OrderItem → Item | N:1 (단방향) | ORDER_ITEM.ITEM_ID | **OrderItem** | - (단방향이므로 mappedBy 없음) |
 | Order ↔ Delivery | 1:1 (양방향) | ORDERS.DELIVERY_ID | **Order** | Delivery.order에 `mappedBy="delivery"` |
 | Item ↔ Category | M:N (양방향) | CATEGORY_ITEM (조인 테이블) | **Category** | Item.categories에 `mappedBy="items"` |
-| Category → Category | 1:N (자기참조) | CATEGORY.PARENT_ID | **Category(자식)** | Category.children에 `mappedBy="parent"` |
+| Category → Category | 1:N (자기참조) | CATEGORY.PARENT_ID | **Category(자식)** | Category.child에 `mappedBy="parent"` |
 
 ### 4.3 관계별 상세 분석
 
@@ -623,14 +647,14 @@ private List<Item> items = new ArrayList<>();
 private List<Category> categories = new ArrayList<>();
 ```
 
-> ⚠️ **주의**: M:N 관계를 `@ManyToMany`로 구현하면 실무에서 문제가 많습니다. 자세한 내용은 [5.1절](#51-manytomany-사용을-지양해야-하는-이유)을 참고하세요.
+> ⚠️ **주의**: M:N 관계를 `@ManyToMany`로 구현하면 실무에서 문제가 많습니다. 자세한 내용은 [6.1절](#61-manytomany-사용을-지양해야-하는-이유)을 참고하세요.
 
 #### 4.3.6 Category 자기참조: 부모-자식 트리
 
 ```
 [객체]
 Category.parent   : Category        ← 주인 (N:1, @ManyToOne)
-Category.children : List<Category>  ← 비주인 (1:N, mappedBy = "parent")
+Category.child    : List<Category>  ← 비주인 (1:N, mappedBy = "parent")
 
 [테이블]
 CATEGORY
@@ -656,14 +680,575 @@ CATEGORY_ID   NAME       PARENT_ID
 private Category parent;
 
 @OneToMany(mappedBy = "parent")
-private List<Category> children = new ArrayList<>();
+private List<Category> child = new ArrayList<>();
 ```
 
 ---
 
-## 5. 설계 핵심 주의점 (Best Practice)
+## 5. 엔티티 클래스 개발
 
-### 5.1 @ManyToMany 사용을 지양해야 하는 이유
+### 5.1 엔티티 개발 준비 — 필독! 주의!
+
+엔티티 클래스를 작성하기 전에 반드시 아래 사항을 확인해야 합니다.
+
+**① 초기 환경설정에서 만든 파일 제거**
+
+챕터 1(프로젝트 환경설정)에서 테스트 목적으로 만든 3개 파일이 있으면, 새로 작성할 `Member` 엔티티와 충돌이 발생합니다. 아래 파일들을 반드시 제거하세요:
+
+```
+삭제 대상:
+├── src/main/java/jpabook/jpashop/Member.java          (루트 패키지의 Member)
+├── src/main/java/jpabook/jpashop/MemberRepository.java
+└── src/test/java/jpabook/jpashop/MemberRepositoryTest.java
+```
+
+**② Spring Boot 3.x 임포트 변경**
+
+강의 영상은 Spring Boot 2.x 기준이므로 `javax.persistence.*`를 사용하지만, 이 프로젝트는 Spring Boot 4.x (Jakarta EE 기반)이므로 반드시 `jakarta.persistence.*`로 변경해야 합니다.
+
+```java
+// ❌ 영상의 방식 (Spring Boot 2.x)
+import javax.persistence.*;
+
+// ✅ 이 프로젝트 방식 (Spring Boot 3.x / 4.x)
+import jakarta.persistence.*;
+```
+
+**③ 이 강의에서의 Getter/Setter 정책**
+
+강의에서는 설명 편의를 위해 `@Getter @Setter` 모두 열어두지만, **실무에서는 Getter만 열어두는 것을 권장**합니다. Setter는 값이 변경되는 시점이 많아지면 버그 추적이 어려워지기 때문입니다. 이후 챕터에서 점진적으로 비즈니스 메서드로 대체합니다.
+
+**④ 엔티티 클래스 개발 순서**
+
+```
+1. Address.java          값 타입 먼저 (엔티티가 의존하므로)
+2. OrderStatus.java      Enum 타입
+3. DeliveryStatus.java   Enum 타입
+4. Member.java           가장 단순한 엔티티
+5. Item.java             추상 클래스 (상속 전략 결정)
+6. Book / Album / Movie  Item 서브클래스
+7. Delivery.java         Order가 참조하므로 먼저
+8. Order.java            Cascade, 편의 메서드 포함
+9. OrderItem.java        Order 이후
+10. Category.java        M:N + 자기참조
+```
+
+### 5.2 Address.java — 값 타입 구현
+
+`Address`는 `@Embeddable` 어노테이션으로 선언하는 **값 타입(Value Object)**입니다.
+
+```java
+package jpabook.jpashop.domain;
+
+import jakarta.persistence.Embeddable;
+import lombok.Getter;
+
+@Embeddable
+@Getter
+public class Address {
+
+    private String city;
+    private String street;
+    private String zipcode;
+
+    protected Address() {
+    }
+
+    public Address(String city, String street, String zipcode) {
+        this.city = city;
+        this.street = street;
+        this.zipcode = zipcode;
+    }
+}
+```
+
+**핵심 포인트:**
+
+| 항목 | 설명 |
+|------|------|
+| `@Embeddable` | "나는 어딘가에 내장될 수 있는 타입"이라는 선언. 이 어노테이션이 있어야 다른 엔티티에서 `@Embedded`로 포함 가능 |
+| `protected Address()` | JPA는 reflection/proxy 기술을 위해 기본 생성자가 반드시 필요. `public`으로 하면 외부에서 직접 호출 가능해지므로, JPA가 허용하는 최소 접근 수준인 `protected`를 사용 |
+| Setter 없음 | 값 타입은 **불변(Immutable)**으로 설계해야 부작용 없음. 값을 바꾸려면 새 객체를 만들어 교체 |
+| `@Getter`만 선언 | 조회는 허용하되 수정은 막음 |
+
+```
+[값 타입 공유의 위험성]
+
+Address address = new Address("Seoul", "Gangnam", "12345");
+member.setAddress(address);
+delivery.setAddress(address);  // 같은 인스턴스 공유!
+
+address.setCity("Busan");      // member와 delivery 모두 변경됨 → 사이드 이펙트!
+
+→ Address를 불변으로 만들어 setter를 제거하면 이 문제가 원천 차단됨
+```
+
+### 5.3 Enum 타입 — OrderStatus, DeliveryStatus
+
+**OrderStatus.java**
+
+```java
+package jpabook.jpashop.domain;
+
+public enum OrderStatus {
+    ORDER, CANCEL
+}
+```
+
+**DeliveryStatus.java**
+
+```java
+package jpabook.jpashop.domain;
+
+public enum DeliveryStatus {
+    READY, COMP
+}
+```
+
+**`@Enumerated` — EnumType.STRING vs ORDINAL:**
+
+| 전략 | 저장 방식 | 문제점 |
+|------|-----------|--------|
+| `EnumType.ORDINAL` | 숫자(0, 1, 2...)로 저장 | Enum 항목 중간에 새 값 추가 시 기존 데이터 오염. 예) `ORDER(0), CANCEL(1)` 이었는데 `PENDING(0), ORDER(1), CANCEL(2)`로 바뀌면 DB의 0이 무엇을 의미하는지 틀려짐 |
+| `EnumType.STRING` | 이름("ORDER", "CANCEL")으로 저장 | 중간에 값 추가해도 기존 데이터 영향 없음 |
+
+```java
+// ❌ 절대 사용 금지
+@Enumerated(EnumType.ORDINAL)
+private OrderStatus status;
+
+// ✅ 반드시 STRING 사용
+@Enumerated(EnumType.STRING)
+private OrderStatus status;
+```
+
+### 5.4 Member.java
+
+```java
+package jpabook.jpashop.domain;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Getter @Setter
+public class Member {
+
+    @Id @GeneratedValue
+    @Column(name = "member_id")
+    private Long id;
+
+    private String name;
+
+    @Embedded
+    private Address address;
+
+    // 연관관계 주인이 아님 (비주인)
+    // mappedBy에 값을 넣어도 외래 키(MEMBER_ID)가 변경되지 않음
+    @OneToMany(mappedBy = "member")
+    private List<Order> orders = new ArrayList<>();
+}
+```
+
+**핵심 포인트:**
+
+| 항목 | 설명 |
+|------|------|
+| `@Column(name = "member_id")` | 스프링의 네이밍 전략에 의해 자동으로 `member_id`로 변환되지만, 명시적으로 지정해 의도를 명확히 함 |
+| `@Embedded` | `Address` 값 타입을 포함. 테이블에는 `city`, `street`, `zipcode`로 컬럼이 펼쳐짐 |
+| `@OneToMany(mappedBy = "member")` | Order 엔티티의 `member` 필드가 연관관계 주인. Member는 비주인으로 읽기 전용 |
+| `= new ArrayList<>()` | 컬렉션은 필드에서 바로 초기화 (이유는 [6.9절](#69-컬렉션은-필드에서-초기화) 참고) |
+
+### 5.5 Item.java — 추상 클래스와 단일 테이블 전략
+
+```java
+package jpabook.jpashop.domain.Item;
+
+import jakarta.persistence.*;
+import jpabook.jpashop.domain.Category;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Inheritance(strategy = InheritanceType.SINGLE_TABLE)
+@DiscriminatorColumn(name = "dtype")
+@Getter @Setter
+public abstract class Item {
+
+    @Id @GeneratedValue
+    @Column(name = "item_id")
+    private Long id;
+
+    private String name;
+    private int price;
+    private int stockQuantity;
+
+    @ManyToMany(mappedBy = "items")
+    private List<Category> categories = new ArrayList<>();
+}
+```
+
+**상속 전략 비교:**
+
+| 전략 | 어노테이션 값 | 특징 | 장점 | 단점 |
+|------|-------------|------|------|------|
+| **단일 테이블** (선택) | `SINGLE_TABLE` | 모든 자식 컬럼을 하나의 테이블에 | JOIN 없음, 성능 최고, 단순 | 자식 전용 컬럼은 NULL 허용, 테이블이 커질 수 있음 |
+| **조인** | `JOINED` | 부모/자식 테이블 분리 후 JOIN | 정규화, 서브타입 컬럼 NOT NULL 가능 | JOIN으로 성능 저하, 쿼리 복잡 |
+| **클래스별 테이블** | `TABLE_PER_CLASS` | 각 자식마다 독립 테이블 | NULL 없음 | 공통 컬럼 중복, 부모 타입 조회 시 UNION 필요, 비추천 |
+
+**이 강의 선택 이유**: 단일 테이블 전략은 JOIN 없이 빠르고 단순합니다. Book/Album/Movie의 컬럼이 많지 않아 테이블이 지나치게 비대해지지 않으므로 적합합니다.
+
+```
+ITEM 테이블 (단일 테이블 전략):
+
+ITEM_ID | DTYPE | NAME     | PRICE | STOCK | AUTHOR | ISBN | ARTIST | ETC | DIRECTOR | ACTOR
+--------|-------|----------|-------|-------|--------|------|--------|-----|----------|------
+1       | B     | JPA책    | 35000 | 10    | 김영한  | 123  | NULL   | NULL| NULL    | NULL
+2       | A     | BTS앨범  | 25000 | 50    | NULL   | NULL | BTS    | ... | NULL    | NULL
+3       | M     | 어벤져스 | 15000 | 100   | NULL   | NULL | NULL   | NULL| 루소   | RDJ
+```
+
+### 5.6 Book / Album / Movie.java
+
+**Book.java**
+
+```java
+package jpabook.jpashop.domain.Item;
+
+import jakarta.persistence.DiscriminatorValue;
+import jakarta.persistence.Entity;
+import lombok.Getter;
+import lombok.Setter;
+
+@Entity
+@DiscriminatorValue("B")
+@Getter @Setter
+public class Book extends Item {
+
+    private String author;
+    private String isbn;
+}
+```
+
+**Album.java**
+
+```java
+package jpabook.jpashop.domain.Item;
+
+import jakarta.persistence.DiscriminatorValue;
+import jakarta.persistence.Entity;
+import lombok.Getter;
+import lombok.Setter;
+
+@Entity
+@DiscriminatorValue("A")
+@Getter @Setter
+public class Album extends Item {
+
+    private String artist;
+    private String etc;
+}
+```
+
+**Movie.java**
+
+```java
+package jpabook.jpashop.domain.Item;
+
+import jakarta.persistence.DiscriminatorValue;
+import jakarta.persistence.Entity;
+import lombok.Getter;
+import lombok.Setter;
+
+@Entity
+@DiscriminatorValue("M")
+@Getter @Setter
+public class Movie extends Item {
+
+    private String director;
+    private String actor;
+}
+```
+
+**핵심 포인트:**
+
+| 어노테이션 | 설명 |
+|-----------|------|
+| `@DiscriminatorValue("B")` | ITEM 테이블의 `dtype` 컬럼에 저장될 값. Book은 "B", Album은 "A", Movie는 "M" |
+| `extends Item` | 부모 클래스(`Item`)의 공통 필드(`id`, `name`, `price`, `stockQuantity`)를 상속받음 |
+| 자식 클래스 고유 필드 | Book의 `author`/`isbn`, Album의 `artist`/`etc`, Movie의 `director`/`actor` |
+
+### 5.7 Delivery.java
+
+```java
+package jpabook.jpashop.domain;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
+@Entity
+@Getter @Setter
+public class Delivery {
+
+    @Id @GeneratedValue
+    @Column(name = "delivery_id")
+    private Long id;
+
+    // Order가 DELIVERY_ID FK를 가짐 → Order가 연관관계 주인
+    // Delivery는 비주인: mappedBy = "delivery"
+    @OneToOne(mappedBy = "delivery", fetch = FetchType.LAZY)
+    private Order order;
+
+    @Embedded
+    private Address address;
+
+    @Enumerated(EnumType.STRING)
+    private DeliveryStatus status;  // READY, COMP
+}
+```
+
+**핵심 포인트:**
+
+- 1:1 관계에서 FK는 주로 접근하는 쪽(Order)에 배치 → `Delivery`는 비주인
+- `mappedBy = "delivery"`: "나는 Order의 `delivery` 필드에 의해 매핑된다"
+- `@Embedded Address`: Member와 마찬가지로 `city`, `street`, `zipcode`가 DELIVERY 테이블에 컬럼으로 포함됨
+- `@Enumerated(EnumType.STRING)`: ORDINAL 절대 사용 금지
+
+### 5.8 Order.java — Cascade + 연관관계 편의 메서드
+
+```java
+package jpabook.jpashop.domain;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+import static jakarta.persistence.FetchType.*;
+
+@Entity
+@Table(name = "orders")
+@Getter @Setter
+public class Order {
+
+    @Id @GeneratedValue
+    @Column(name = "order_id")
+    private Long id;
+
+    @ManyToOne(fetch = LAZY)
+    @JoinColumn(name = "member_id")
+    private Member member;
+
+    // cascade: orderItems에 값을 담아두고 order를 persist하면
+    // orderItems도 자동으로 함께 persist됨
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+    private List<OrderItem> orderItems = new ArrayList<>();
+
+    // order를 저장할 때 Delivery도 자동으로 persist
+    @OneToOne(fetch = LAZY, cascade = CascadeType.ALL)
+    @JoinColumn(name = "delivery_id")
+    private Delivery delivery;
+
+    private LocalDateTime orderDate;
+
+    @Enumerated(EnumType.STRING)
+    private OrderStatus status;  // 주문 상태 [ORDER, CANCEL]
+
+    // === 연관관계 편의 메서드 ===
+    // 핵심적으로 컨트롤하는 쪽(Order)에 배치
+    public void setMember(Member member) {
+        this.member = member;
+        member.getOrders().add(this);  // 반대쪽도 함께 설정
+    }
+
+    public void addOrderItem(OrderItem orderItem) {
+        orderItems.add(orderItem);
+        orderItem.setOrder(this);      // 반대쪽도 함께 설정
+    }
+
+    public void setDelivery(Delivery delivery) {
+        this.delivery = delivery;
+        delivery.setOrder(this);       // 반대쪽도 함께 설정
+    }
+}
+```
+
+**Cascade 설명:**
+
+```
+[Cascade 없을 때]
+persist(orderItem1);   // 따로 저장
+persist(orderItem2);   // 따로 저장
+persist(orderItem3);   // 따로 저장
+persist(order);        // order 저장 → 총 4번의 persist 필요
+
+[Cascade 있을 때]
+order.getOrderItems().add(orderItem1);
+order.getOrderItems().add(orderItem2);
+order.getOrderItems().add(orderItem3);
+persist(order);        // order 하나만 persist → orderItems, delivery도 자동 저장
+```
+
+**연관관계 편의 메서드 동작 방식:**
+
+```java
+// 편의 메서드 없이 양쪽을 직접 설정하는 경우 (불편하고 실수 위험)
+order.setMember(member);           // Order → Member 설정
+member.getOrders().add(order);     // Member → Order 설정 (빠뜨리기 쉬움)
+
+// 편의 메서드 사용 (한 번만 호출하면 양쪽 모두 설정됨)
+order.setMember(member);           // 내부에서 member.getOrders().add(this)도 함께 실행
+```
+
+### 5.9 OrderItem.java
+
+```java
+package jpabook.jpashop.domain;
+
+import jakarta.persistence.*;
+import jpabook.jpashop.domain.Item.Item;
+import lombok.Getter;
+import lombok.Setter;
+
+@Entity
+@Getter @Setter
+public class OrderItem {
+
+    @Id @GeneratedValue
+    @Column(name = "order_item_id")
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "item_id")
+    private Item item;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id")
+    private Order order;
+
+    private int orderPrice;  // 주문 가격 (주문 당시의 가격 스냅샷)
+    private int count;       // 주문 수량
+}
+```
+
+**핵심 포인트:**
+
+- `orderPrice`를 별도 필드로 저장하는 이유: 상품의 가격은 나중에 변경될 수 있으므로, **주문 당시의 가격을 스냅샷으로 보관**
+- `Item`을 직접 가지되 단방향 (`Item`에서 `OrderItem` 목록 조회 불필요)
+- 두 `@ManyToOne` 모두 `LAZY` 로딩 설정
+
+### 5.10 Category.java — M:N + 자기참조 + 편의 메서드
+
+```java
+package jpabook.jpashop.domain;
+
+import jakarta.persistence.*;
+import jpabook.jpashop.domain.Item.Item;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import static jakarta.persistence.FetchType.*;
+
+@Entity
+@Getter @Setter
+public class Category {
+
+    @Id @GeneratedValue
+    @Column(name = "category_id")
+    private Long id;
+
+    private String name;
+
+    // M:N — 연관관계 주인
+    // joinColumns: 현재 엔티티(Category)가 중간 테이블에 연결되는 FK
+    // inverseJoinColumns: 반대쪽 엔티티(Item)가 중간 테이블에 연결되는 FK
+    @ManyToMany
+    @JoinTable(name = "category_item",
+            joinColumns = @JoinColumn(name = "category_id"),
+            inverseJoinColumns = @JoinColumn(name = "item_id"))
+    private List<Item> items = new ArrayList<>();
+
+    // 자기참조 — 부모 카테고리 (주인)
+    @ManyToOne(fetch = LAZY)
+    @JoinColumn(name = "parent_id")
+    private Category parent;
+
+    // 자기참조 — 자식 카테고리 목록 (비주인)
+    @OneToMany(mappedBy = "parent")
+    private List<Category> child = new ArrayList<>();
+
+    // === 연관관계 편의 메서드 ===
+    public void addChildCategory(Category child) {
+        this.child.add(child);
+        child.setParent(this);
+    }
+}
+```
+
+**`@JoinTable` 상세 설명:**
+
+```
+@JoinTable(
+    name = "category_item",                           ← 중간 조인 테이블 이름
+    joinColumns = @JoinColumn(name = "category_id"),  ← 현재 엔티티(Category) FK
+    inverseJoinColumns = @JoinColumn(name = "item_id") ← 상대 엔티티(Item) FK
+)
+
+생성되는 CATEGORY_ITEM 테이블:
+CATEGORY_ID (FK → CATEGORY.CATEGORY_ID)
+ITEM_ID     (FK → ITEM.ITEM_ID)
+```
+
+**자기참조 트리 구조:**
+
+```
+CATEGORY_ID   NAME        PARENT_ID
+1             전체         NULL
+2             음식         1
+3             한식         2
+4             중식         2
+5             전자제품      1
+6             가전          5
+
+객체로 표현하면:
+전체(id=1)
+├── 음식(id=2)
+│   ├── 한식(id=3)
+│   └── 중식(id=4)
+└── 전자제품(id=5)
+    └── 가전(id=6)
+```
+
+**`addChildCategory` 편의 메서드:**
+
+```java
+// 사용 예시
+Category food = new Category();
+Category korean = new Category();
+
+food.addChildCategory(korean);
+// 내부에서 food.child.add(korean)과 korean.setParent(food)가 동시에 실행됨
+```
+
+---
+
+## 6. 설계 핵심 주의점 및 구현 시 주의점
+
+### 6.1 @ManyToMany 사용을 지양해야 하는 이유
 
 `@ManyToMany`는 JPA가 제공하는 편리한 기능이지만, **실무에서는 거의 사용하지 않습니다.**
 
@@ -724,7 +1309,7 @@ public class CategoryItem {
 }
 ```
 
-### 5.2 값 타입 (@Embeddable) Address의 개념
+### 6.2 값 타입 (@Embeddable) Address의 개념
 
 **Address는 왜 엔티티가 아닌 값 타입인가?**
 
@@ -770,7 +1355,7 @@ public class Address {
 }
 ```
 
-### 5.3 외래 키 위치 결정 기준 (연관관계 주인 선택)
+### 6.3 외래 키 위치 결정 기준 (연관관계 주인 선택)
 
 **원칙: FK가 있는 테이블의 엔티티가 연관관계 주인**
 
@@ -812,7 +1397,7 @@ public void setMember(Member member) {
 }
 ```
 
-### 5.4 단방향 vs 양방향 연관관계 선택 기준
+### 6.4 단방향 vs 양방향 연관관계 선택 기준
 
 ```
 [원칙]
@@ -836,11 +1421,239 @@ Order ↔ OrderItem: 주문서를 조회하면 주문 상품 목록이 반드시
 | **테이블 증가 없음** | 양방향 추가해도 테이블 변경 없음 (객체 그래프만 추가됨) |
 | **Lombok @Data 금지** | `@EqualsAndHashCode`가 양방향 참조에서 무한 루프 유발 |
 
+### 6.5 Getter는 열어두고, Setter는 꼭 필요한 경우에만
+
+**Getter**를 모두 열어두는 이유:
+- Getter는 단순히 값을 읽기만 하므로 어디서 호출해도 **부작용(side effect)이 없음**
+
+**Setter를 제한해야 하는 이유:**
+- Setter를 열어두면 값이 변경되는 시점이 너무 많아짐
+- 나중에 데이터가 왜 바뀌었는지 추적이 어려워짐
+- 버그 발생 시 원인 파악이 힘들어짐
+
+```java
+// ❌ 문제 있는 방식 - setter로 값 변경
+order.setStatus(OrderStatus.CANCEL);
+order.setOrderDate(LocalDateTime.now());
+
+// ✅ 권장 방식 - 비즈니스 메서드로 의도를 명확히 표현
+public void cancel() {
+    if (delivery.getStatus() == DeliveryStatus.COMP) {
+        throw new IllegalStateException("이미 배송완료된 상품은 취소가 불가능합니다.");
+    }
+    this.status = OrderStatus.CANCEL;
+    // 취소 시 재고 복구 로직도 함께 처리
+}
+```
+
+**이 강의의 방침**: 설명 편의를 위해 `@Getter @Setter` 모두 열어두되, 이후 챕터에서 서비스 계층을 구현하면서 점진적으로 비즈니스 메서드로 대체합니다.
+
+### 6.6 모든 연관관계는 LAZY 로딩
+
+**즉시 로딩(EAGER)이 문제인 이유:**
+
+```
+[EAGER 로딩 예시]
+Order 100개를 조회하는 쿼리 1번
++ 각 Order의 Member를 EAGER로 즉시 로딩 → Member SELECT 100번
+= 총 101번 쿼리 발생! → N+1 문제
+```
+
+**LAZY 로딩이 올바른 이유:**
+
+```
+[LAZY 로딩]
+Order 100개를 조회하는 쿼리 1번
+→ member는 프록시 객체로 대체
+→ 실제 member.getName() 호출 시점에만 SELECT 실행
+
+→ 필요한 연관 엔티티만 조회 → 성능 최적화 가능
+→ 필요 시 fetch join으로 한 번에 조회 가능
+```
+
+**JPA 기본값 주의:**
+
+| 어노테이션 | 기본 Fetch 전략 | 권장 설정 |
+|-----------|---------------|----------|
+| `@ManyToOne` | `EAGER` (즉시 로딩) | `LAZY`로 변경 필수 |
+| `@OneToOne` | `EAGER` (즉시 로딩) | `LAZY`로 변경 필수 |
+| `@OneToMany` | `LAZY` (지연 로딩) | 기본값 유지 |
+| `@ManyToMany` | `LAZY` (지연 로딩) | 기본값 유지 |
+
+```java
+// ❌ 기본값 EAGER 그대로 사용 (절대 금지)
+@ManyToOne
+@JoinColumn(name = "member_id")
+private Member member;
+
+// ✅ 반드시 LAZY로 명시
+@ManyToOne(fetch = FetchType.LAZY)
+@JoinColumn(name = "member_id")
+private Member member;
+```
+
+### 6.7 Cascade 설정 전략
+
+**Cascade를 적용하면 부모 엔티티를 저장/삭제할 때 자식 엔티티도 함께 처리됩니다.**
+
+**Cascade 적용 기준:**
+
+| 기준 | 설명 |
+|------|------|
+| ✅ 생명주기가 **같은** 엔티티끼리 | Order와 OrderItem은 함께 생성/삭제됨 |
+| ✅ 소유자가 **하나**인 엔티티 | OrderItem은 반드시 하나의 Order에만 속함 |
+| ❌ 여러 곳에서 **참조하는** 엔티티 | Item은 여러 OrderItem이 참조 → Cascade 불가 |
+
+```java
+// ✅ 적절한 Cascade 적용
+@OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+private List<OrderItem> orderItems = new ArrayList<>();
+// Order 저장 시 OrderItem도 자동 저장, Order 삭제 시 OrderItem도 자동 삭제
+
+@OneToOne(fetch = LAZY, cascade = CascadeType.ALL)
+@JoinColumn(name = "delivery_id")
+private Delivery delivery;
+// Order 저장 시 Delivery도 자동 저장
+
+// ❌ 부적절한 Cascade 예시 (적용하면 안 됨)
+// OrderItem에서 Item에 Cascade를 걸면:
+// → Order 삭제 시 Item까지 삭제됨
+// → 다른 OrderItem이 참조하던 Item도 삭제되어 데이터 오염!
+```
+
+### 6.8 연관관계 편의 메서드
+
+양방향 연관관계가 있을 때 양쪽 객체를 모두 설정해 주는 메서드입니다.
+
+**배치 위치 기준:** "핵심적으로 컨트롤하는 쪽"에 배치
+
+```java
+// Order.java — 3개의 편의 메서드 보유
+
+// Member ↔ Order 양방향 설정
+public void setMember(Member member) {
+    this.member = member;           // Order → Member 설정 (주인)
+    member.getOrders().add(this);  // Member → Order 설정 (동기화)
+}
+
+// Order ↔ OrderItem 양방향 설정
+public void addOrderItem(OrderItem orderItem) {
+    orderItems.add(orderItem);       // Order → OrderItem 설정 (비주인)
+    orderItem.setOrder(this);        // OrderItem → Order 설정 (주인)
+}
+
+// Order ↔ Delivery 양방향 설정
+public void setDelivery(Delivery delivery) {
+    this.delivery = delivery;        // Order → Delivery 설정 (주인)
+    delivery.setOrder(this);         // Delivery → Order 설정 (동기화)
+}
+
+// Category.java — 1개의 편의 메서드 보유
+
+// Category 자기참조 양방향 설정
+public void addChildCategory(Category child) {
+    this.child.add(child);           // 부모 → 자식 설정 (비주인)
+    child.setParent(this);           // 자식 → 부모 설정 (주인)
+}
+```
+
+### 6.9 컬렉션은 필드에서 초기화
+
+하이버네이트는 엔티티를 영속성 컨텍스트에 저장하면 컬렉션을 자체 구현체(`PersistentBag` 등)로 래핑합니다. 이 래핑이 풀리면 하이버네이트 내부 메커니즘이 손상될 수 있습니다.
+
+```java
+// 하이버네이트의 컬렉션 래핑 예시
+Member member = new Member();
+System.out.println(member.getOrders().getClass());
+// → class java.util.ArrayList   (저장 전)
+
+em.persist(member);
+
+System.out.println(member.getOrders().getClass());
+// → class org.hibernate.collection.internal.PersistentBag   (저장 후, 래핑됨)
+```
+
+**필드에서 초기화해야 하는 이유:**
+
+```java
+// ❌ 위험 - 생성자에서 초기화 후 setter로 교체하면 래핑이 풀림
+public class Member {
+    private List<Order> orders;
+
+    public Member() {
+        orders = new ArrayList<>();  // 생성자에서 초기화
+    }
+
+    public void setOrders(List<Order> orders) {
+        this.orders = orders;  // setter로 교체하면 기존 래핑이 풀려버림!
+    }
+}
+
+// ✅ 안전 - 필드에서 바로 초기화
+public class Member {
+    @OneToMany(mappedBy = "member")
+    private List<Order> orders = new ArrayList<>();  // 필드 초기화
+    // → 절대 교체하지 않음 → 래핑 상태 유지
+}
+```
+
+**결론**: 컬렉션은 항상 `= new ArrayList<>()` 형태로 필드 선언 시점에 초기화하고, setter로 교체하지 마세요.
+
+### 6.10 테이블, 컬럼명 생성 전략 (SpringPhysicalNamingStrategy)
+
+스프링 부트는 엔티티 필드명을 DB 컬럼명으로 자동 변환할 때 **네이밍 전략**을 적용합니다.
+
+**스프링 부트 네이밍 전략 3가지 규칙:**
+
+| 규칙 | 예시 |
+|------|------|
+| 카멜 케이스 → 언더스코어 | `memberPoint` → `member_point` |
+| `.`(점) → `_`(언더스코어) | `address.city` → `address_city` |
+| 대문자 → 소문자 | `MEMBER_ID` → `member_id` |
+
+**적용 2단계:**
+
+```
+1단계 - 논리명 생성 (ImplicitNamingStrategy)
+  → @Column 등에서 명시적인 이름을 지정하지 않으면 자동 생성
+  → 예) private String memberPoint → 논리명 "memberPoint"
+
+2단계 - 물리명 적용 (SpringPhysicalNamingStrategy)
+  → 논리명에 위의 3가지 규칙을 적용해 실제 DB 컬럼명 결정
+  → 예) "memberPoint" → "member_point"
+  → 모든 논리명에 일괄 적용 (회사 규칙으로 커스터마이즈 가능)
+```
+
+**스프링 부트 기본 설정값 (application.properties):**
+
+```properties
+spring.jpa.hibernate.naming.implicit-strategy=
+  org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy
+
+spring.jpa.hibernate.naming.physical-strategy=
+  org.springframework.boot.orm.jpa.hibernate.SpringPhysicalNamingStrategy
+```
+
+**실제 적용 예시:**
+
+```java
+// 엔티티 필드
+private String orderDate;      // → order_date
+private int stockQuantity;     // → stock_quantity
+private Long memberId;         // → member_id
+
+// @Column으로 명시한 경우 논리명으로 사용됨 (물리명 변환 적용)
+@Column(name = "member_id")    // → member_id (소문자 변환 적용)
+private Long id;
+```
+
+> **참고**: 자동 생성된 DDL 스크립트는 참고용으로만 활용하고, 반드시 검토·다듬어서 사용해야 합니다. 프로덕션에서 `ddl-auto=create`를 사용하면 기존 데이터가 삭제됩니다.
+
 ---
 
-## 6. 부록
+## 7. 부록
 
-### 6.1 핵심 용어 정리
+### 7.1 핵심 용어 정리
 
 | 용어 | 설명 |
 |------|------|
@@ -854,10 +1667,14 @@ Order ↔ OrderItem: 주문서를 조회하면 주문 상품 목록이 반드시
 | **단일 테이블 전략** | 상속 관계를 하나의 테이블로 표현. `DTYPE` 컬럼으로 구분 |
 | **영속성 컨텍스트** | JPA가 엔티티를 관리하는 1차 캐시 공간 |
 | **패러다임 불일치** | 객체 지향(참조)과 관계형 DB(FK) 사이의 차이. JPA가 해결 |
+| **Cascade** | 부모 엔티티의 상태 변화를 자식 엔티티에 자동 전파 |
+| **LAZY 로딩** | 연관 엔티티를 실제 사용 시점에 쿼리하는 전략 |
+| **PersistentBag** | 하이버네이트가 컬렉션을 래핑하는 자체 구현체 |
+| **네이밍 전략** | 엔티티 필드명을 DB 컬럼명으로 변환하는 규칙 |
 
-### 6.2 어노테이션 미리보기
+### 7.2 어노테이션 정리
 
-이 설계를 구현할 때 사용할 JPA 어노테이션 목록입니다.
+이 챕터에서 사용한 JPA 어노테이션 목록입니다.
 
 | 어노테이션 | 설명 | 사용 위치 |
 |-----------|------|----------|
@@ -875,7 +1692,7 @@ Order ↔ OrderItem: 주문서를 조회하면 주문 상품 목록이 반드시
 | `@JoinColumn(name = "...")` | FK 컬럼 이름 지정 (주인 쪽) | 필드 |
 | `@JoinTable(...)` | 조인 테이블 설정 (M:N) | 필드 |
 | `@Inheritance` | 상속 매핑 전략 지정 | 클래스 |
-| `@DiscriminatorColumn` | 구분 컬럼 지정 (`DTYPE`) | 클래스 |
+| `@DiscriminatorColumn` | 구분 컬럼 지정 (`dtype`) | 클래스 |
 | `@DiscriminatorValue` | 구분 컬럼 값 지정 | 클래스 |
 | `@Enumerated` | Enum 타입 매핑 | 필드 |
 
@@ -888,7 +1705,7 @@ Order ↔ OrderItem: 주문서를 조회하면 주문 상품 목록이 반드시
 
 > **중요**: 실전에서는 모든 연관관계를 `FetchType.LAZY`로 설정하는 것을 강하게 권장합니다.
 
-### 6.3 설계 요약표
+### 7.3 설계 요약표
 
 | 항목 | 이 프로젝트의 설계 결정 |
 |------|----------------------|
@@ -898,8 +1715,11 @@ Order ↔ OrderItem: 주문서를 조회하면 주문 상품 목록이 반드시
 | **1:1 FK 위치** | 주 테이블(Order)에 FK 배치 |
 | **연관관계 방향** | 비즈니스 로직에서 역방향 탐색이 필요한 경우만 양방향 설정 |
 | **Fetch 전략** | 모든 연관관계 `LAZY` 로딩 (지연 로딩) 기본 원칙 |
+| **Cascade** | 생명주기가 같고 단일 소유자인 엔티티에만 적용 (Order→OrderItem, Order→Delivery) |
+| **컬렉션 초기화** | 필드 선언 시 `= new ArrayList<>()` 로 즉시 초기화 |
+| **Getter/Setter** | 학습 편의상 모두 열되, 실무에서는 Getter만 열고 비즈니스 메서드 활용 권장 |
 
-### 6.4 학습 확인 질문
+### 7.4 학습 확인 질문
 
 다음 질문에 답하며 학습 내용을 확인해 보세요:
 
@@ -924,36 +1744,52 @@ Order ↔ OrderItem: 주문서를 조회하면 주문 상품 목록이 반드시
 7. **단일 테이블 전략(SINGLE_TABLE)에서 DTYPE 컬럼의 역할은?**
    - Book인지, Album인지, Movie인지 구분하는 컬럼입니다. `@DiscriminatorColumn`으로 설정하며, 각 서브 클래스는 `@DiscriminatorValue`로 자신의 값을 지정합니다.
 
-### 6.5 다음 챕터 예고
+8. **모든 연관관계를 LAZY로 설정해야 하는 이유는?**
+   - EAGER 로딩은 N+1 문제를 유발할 수 있습니다. 예를 들어 Order 100개를 조회할 때 Member가 EAGER면 추가 SELECT가 100번 발생합니다. LAZY로 설정 후 필요 시 fetch join으로 최적화합니다.
 
-**챕터 2-2: 엔티티 클래스 개발**
+9. **컬렉션을 필드에서 초기화해야 하는 이유는?**
+   - 하이버네이트는 persist 후 컬렉션을 PersistentBag 등 자체 구현체로 래핑합니다. setter로 컬렉션을 교체하면 이 래핑이 풀려 영속성 관련 기능이 손상될 수 있습니다.
 
-다음 학습에서 이 설계를 실제 코드로 구현합니다:
+10. **Cascade를 Order→Item에 적용하면 안 되는 이유는?**
+    - Item은 여러 OrderItem이 공유하는 엔티티입니다. Order 삭제 시 Item까지 삭제되면 다른 OrderItem에서 참조하던 Item도 사라져 데이터가 오염됩니다.
+
+### 7.5 다음 챕터 예고
+
+**챕터 3: 애플리케이션 구현 준비**
+
+도메인 설계와 엔티티 구현이 완료되었습니다. 다음 챕터에서는 실제 비즈니스 로직을 구현하기 위한 **계층형 아키텍처**를 설계하고 준비합니다.
 
 ```
-설계도 완성 (이번 챕터)
+엔티티 구현 완료 (이번 챕터)
     ↓
-엔티티 클래스 작성 (다음 챕터)
-    ├── Member.java          (@Entity, @Embedded Address)
-    ├── Order.java           (@OneToMany, @ManyToOne, @OneToOne)
-    ├── OrderItem.java       (@ManyToOne × 2)
-    ├── Item.java            (@Inheritance, @DiscriminatorColumn)
-    │   ├── Book.java        (@DiscriminatorValue("B"))
-    │   ├── Album.java       (@DiscriminatorValue("A"))
-    │   └── Movie.java       (@DiscriminatorValue("M"))
-    ├── Delivery.java        (@OneToOne)
-    ├── Category.java        (@ManyToMany, 자기참조)
-    └── Address.java         (@Embeddable)
-        ↓
-엔티티 설계 시 주의점
-    ├── 가급적 Getter만 공개
-    ├── 모든 연관관계는 지연 로딩(LAZY)
-    ├── 컬렉션은 필드에서 초기화
-    └── 테이블/컬럼명 관례 설정
+애플리케이션 구현 준비 (다음 챕터)
+    ├── 아키텍처 구성
+    │   ├── 계층형 아키텍처 이해
+    │   │   ├── Controller  (웹 계층)
+    │   │   ├── Service     (비즈니스 로직)
+    │   │   ├── Repository  (JPA 직접 사용)
+    │   │   └── Domain      (엔티티, 비즈니스 로직 포함)
+    │   └── 패키지 구조 준비
+    │       ├── jpabook.jpashop.repository/
+    │       ├── jpabook.jpashop.service/
+    │       └── jpabook.jpashop.web/
+    └── 개발 방향
+        ├── Repository → Service → Test 순서로 개발
+        ├── 회원 도메인부터 시작 (가장 단순)
+        └── 테스트 코드로 동작 검증
 ```
+
+**다음 챕터 이후 흐름:**
+
+| 챕터 | 내용 |
+|------|------|
+| 4. 회원 도메인 개발 | MemberRepository, MemberService, 회원 테스트 |
+| 5. 상품 도메인 개발 | ItemRepository, ItemService, 상품 테스트 |
+| 6. 주문 도메인 개발 | OrderRepository, OrderService, 주문 테스트 |
+| 7. 웹 계층 개발 | MemberController, OrderController, Thymeleaf 뷰 |
 
 ---
 
-*작성일: 2026-02-24*
+*작성일: 2026-02-24 / 최종 수정: 2026-03-01*
 *강의: 인프런 - 김영한의 실전! 스프링 부트와 JPA 활용 1*
-*챕터: 2. 도메인 분석 설계 (엔티티 클래스 개발 이전까지)*
+*챕터: 2. 도메인 분석 설계 (요구사항 분석 → 엔티티 클래스 구현 + 설계 주의점 전체)*
