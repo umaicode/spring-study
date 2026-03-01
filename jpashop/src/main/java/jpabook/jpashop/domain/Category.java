@@ -30,8 +30,21 @@ public class Category {
     // -> 실무에서는 거의 못쓴다. 실무에서는 단순하게 맵핑하고 끝나는 경우가 없다.
     // JoinColumn은 뭐냐? -> 중간 테이블에 있는 category_id
     // InverseJoinColumn은 또 뭐냐? -> category_item 테이블에 아이템 쪽으로 들어가는 번호를 맵핑
+    // Q. foreign key 꼭 필요한가요?
+    // A. 상황마다 다르다.
+    // A. 실시간 트래픽이 엄청 중요하고 정합성보다는 잘 서비스되는게 좀 더 유연한게 중요하면 foreign key 빼고 인덱스만 잘 잡아주면 된다.
+    // A. 데이터가 항상 맞아야 되라고 한다면 foreign key를 거는 것에 대해서 진지하게 고민해 볼 필요가 있다.
     @ManyToMany
     @JoinTable(name = "category_item",
-    join)
+            joinColumns = @JoinColumn(name = "category_id"),
+            inverseJoinColumns = @JoinColumn(name = "item_id"))
     private List<Item> items = new ArrayList<>();
+
+    @ManyToOne
+    @JoinColumn(name = "parent_id")
+    private Category parent;
+
+    // 셀프로 양방향 연관관계를 건다?
+    @OneToMany(mappedBy = "parent")
+    private List<Category> child = new ArrayList<>();
 }
