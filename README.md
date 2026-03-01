@@ -51,6 +51,11 @@
 | 챕터 | 주제 | 정리 문서 |
 |------|------|---------|
 | 01 | 프로젝트 환경설정 (Spring Boot 4.x / JPA / H2 / Lombok / 영속성 컨텍스트) | [01README.md](./jpashop/01README.md) |
+| 02 | 도메인 분석 설계 (요구사항 분석 / 엔티티 모델 / 테이블 설계 / 연관관계 매핑 / 엔티티 구현) | [02README.md](./jpashop/02README.md) |
+| 03 | 애플리케이션 구현 준비 (구현 요구사항 / 계층형 아키텍처 / 패키지 구조 / 개발 순서) | [03README.md](./jpashop/03README.md) |
+| 04 | 회원 도메인 개발 (EntityManager / @Transactional / 중복 회원 검증 / 테스트) | [04README.md](./jpashop/04README.md) |
+| 05 | 상품 도메인 개발 (JPA 상속 매핑 / 도메인 모델 패턴 / persist vs merge) | [05README.md](./jpashop/05README.md) |
+| 06 | 주문 도메인 개발 (CascadeType.ALL / 생성 메서드 / Dirty Checking / 동적 쿼리) | [06README.md](./jpashop/06README.md) |
 
 ---
 
