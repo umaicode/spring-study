@@ -2,11 +2,14 @@ package jpabook.jpashop.domain;
 
 import jakarta.persistence.*;
 import jpabook.jpashop.domain.Item.Item;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
 @Getter @Setter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OrderItem {
 
     @Id @GeneratedValue
@@ -23,6 +26,11 @@ public class OrderItem {
 
     private int orderPrice; // 주문 가격
     private int count;  //  주문 수량
+
+    // protected로 만들어 두면 다른 생성자를 막아줄 수 있다. in OrderService
+    // @NoArgsConstructor(access = AccessLevel.PROTECTED) 넣으면 이거랑 똑같다.
+//    protected OrderItem() {
+//    }
 
     // === 생성 메서드 === //
     // 쿠폰 받거나 할인될 수 도 있기 때문에 orderPrice를 따로 가져가는 것이 맞다.
