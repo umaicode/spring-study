@@ -5,17 +5,35 @@ import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.PersistenceUnit;
 import jpabook.jpashop.domain.Member;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 // repository annotation을 사용하면 컴포넌트 스캔에 의해서 자동으로 spring bean으로 관리가 된다.
 @Repository
+@RequiredArgsConstructor
 public class MemberRepository {
 
     // spring이 EntityManager를 만들어서 인젝션 해준다.
-    @PersistenceContext
-    private EntityManager em;
+//    @PersistenceContext
+//    private EntityManager em;
+
+    // spring boot 라이브러리를 쓰시면 그 spring boot에 spring data jpa를 쓰면
+    // @PersistenceContext를 @Autowired로 바꿀 수 있다.
+//    @Autowired
+//    private EntityManager em;
+//
+//    public MemberRepository(EntityManager em) {
+//        this.em = em;
+//    }
+
+    // 위 방식이 가능하기 때문에 @RequiredArgsConstructor 사용 가능
+    private final EntityManager em;
+
+    // 참고로 엔티티매니저는 @Autowired로 안되고 @PersistenceContext애로 표준 annotation이 있어야 인젝션이 된다.
+    // 근데 spring boot(spring data jpa)가 @Autowired도 인젝션 되게 지원해준다.
 
     // 만약에 entity manager factory를 직접 주입하고 싶다면?
 //    @PersistenceUnit
