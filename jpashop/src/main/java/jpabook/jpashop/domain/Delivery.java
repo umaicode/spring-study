@@ -18,7 +18,7 @@ public class Delivery {
     // 보통 오더를 보면서 딜리버리를 본다고 가정을 한다. -> 딜리버리를 가지고 오더를 찾을 일이 거의 없다고 가정
     // 그래서 오더에다가 FK를 둔다.
     // 그럼 이제 연관관계 주인을 정해야 하는데 그러면 FK랑 가까운 곳에 있는 딜리버리를 연관관계의 주인으로 잡아주면 된다.
-    @OneToOne(mappedBy = "delivery")
+    @OneToOne(mappedBy = "delivery", fetch = FetchType.LAZY)
     private Order order;
 
     @Embedded
