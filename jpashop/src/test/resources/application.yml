@@ -1,0 +1,32 @@
+# properties를 쓰던가 yml을 쓰던가 둘 중에 하나를 쓰면 된다.
+# 설정파일이 많아지고 복잡해지면 yaml이 더 낫다.
+# 이러한 설정들은 spring boot manual에서 공부해야 한다.
+# url: jdbc:h2:mem:test 이렇게 돌리게 되면 in-memory를 사용하게 된다.
+# 그냥 spring: 안에 있는거 전부 주석해도 in-memory를 사용한다.
+# test의 yml, 운영의 yml은 분리하는게 맞다!
+# 테스트케이스라는 것은 그냥 돌리고 끝내고 싶은 것이고 필요한 부분은 적절하게 모킹해야 하기 때문이다.
+# springboot는 기본적으로 ddl-auto: create-drop으로 들어간다.
+# create는 내가 가진 것들을 다 드랍한 다음에 create를 하고 애플리케이션을 실행시킨다.
+# create-drop은 똑같은데 애플리케이션 종료 시점에 drop query를 다 날려준다.
+spring:
+#  datasource:
+#    url: jdbc:h2:mem:test
+#    username: sa
+#    password:
+#    driver-class-name: org.h2.Driver
+#
+#  jpa:
+#    hibernate:
+#      ddl-auto: create-drop
+#    properties:
+#      hibernate:
+#        # 운영 환경에서는 로그들을 System.out으로 찍으면 안되고 logger를 통해서 찍어야 한다.
+##        show_sql: true
+#        format_sql: true
+
+# Hibernate가 남기는 모든 로그가 다 디버그 모드로 해서 JPA나 Hibernate가 생성하는 SQL이 다 보인다.
+logging:
+  level:
+    org.hibernate.SQL: debug
+    # 로깅하는 방법
+    org.hibernate.orm.jdbc.bind: trace
