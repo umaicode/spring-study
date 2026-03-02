@@ -2,15 +2,16 @@ package jpabook.jpashop.controller;
 
 import jpabook.jpashop.domain.Item.Item;
 import jpabook.jpashop.domain.Member;
+import jpabook.jpashop.domain.Order;
+import jpabook.jpashop.repository.OrderSearch;
 import jpabook.jpashop.service.ItemService;
 import jpabook.jpashop.service.MemberService;
 import jpabook.jpashop.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -58,5 +59,28 @@ public class OrderController {
         // 만약 주문 결과 페이지를 만든다면?
 //        Long orderId = orderService.order(memberId, itemId, count);
 //        return "redirect:/orders/" + orderId;
+    }
+
+    @GetMapping("/orders")
+    public String orderList(@ModelAttribute("orderSearch") OrderSearch orderSearch, Model model) {
+
+        // 단순한 위임이면 그냥 호출 하는 편
+        // 컨트롤해서 리포지토리를 바로 불러도 괜찮다. 단순히 화면에서 조회하는 기능이라면
+        // 강사의 경우 리포지토리에 접근하는 것, 단순한 위임이면 그냥 호출하느 ㄴ편
+        // 여기서는 코드도 얼마 없으니 서비스에 위임한 것
+        // 얽메이지 말고 여러분의 선택
+        List<Order> orders = orderService.findOrders(orderSearch);
+        model.addAttribute("orders", orders);
+        // @ModelAttribute("orderSearch")의 의미
+        // model.addAttribute("orderSearch", orderSearch);
+        // 이게 생략된거다.
+
+        return "order/orderList";
+    }
+
+    @PostMapping("/orders/{orderId}/cancel")
+    public String cancelOrder(@PathVariable("orderId") Long orderId) {
+        orderService.cancelOrder(orderId);
+        return "redirect:/orders";
     }
 }
