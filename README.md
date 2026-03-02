@@ -56,6 +56,7 @@
 | 04 | 회원 도메인 개발 (EntityManager / @Transactional / 중복 회원 검증 / 테스트) | [04README.md](./jpashop/04README.md) |
 | 05 | 상품 도메인 개발 (JPA 상속 매핑 / 도메인 모델 패턴 / persist vs merge) | [05README.md](./jpashop/05README.md) |
 | 06 | 주문 도메인 개발 (CascadeType.ALL / 생성 메서드 / Dirty Checking / 동적 쿼리) | [06README.md](./jpashop/06README.md) |
+| 07 | 웹 계층 개발 (Thymeleaf fragments / 폼 객체 / @Valid / 변경 감지 vs 병합) | [07README.md](./jpashop/07README.md) |
 
 ---
 
