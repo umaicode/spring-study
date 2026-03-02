@@ -11,6 +11,8 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 
+import java.util.List;
+
 @Controller
 @RequiredArgsConstructor
 public class MemberController {
@@ -49,5 +51,18 @@ public class MemberController {
 
         memberService.join(member);
         return "redirect:/";
+    }
+
+    // JPA를 쓸 때 조심해야 되는 것: 엔티티를 최대한 순수하게 유지를 해야 한다.
+    // 실무에서는 엔티티는 핵심 비즈니스 로직만 가지고 있고 화면을 위한 로직은 화면에 맞는 API나 이런거는 폼 객체나 DTO를 사용해야 한다.
+    // API를 만들 때는 절대 엔티티를 웹으로 반환하면 안된다.
+    // API라는 건 스펙이다.
+    // 엔티티에 로직을 추가했는데 API의 스펙이 변한다? -> 불완전한 API 스펙
+    // 가장 권장하는 것은 템플릿엔진에서 조차도 멤버를 이대로 보기보다는 멤버 DTO나 화면에 맞는 DTO로 변환하여서 반환하는게 제일 깔끔하다.
+    @GetMapping("/members")
+    public String list(Model model) {
+        List<Member> members = memberService.findMembers();
+        model.addAttribute("members", members);
+        return "members/memberList";
     }
 }
