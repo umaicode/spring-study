@@ -1,0 +1,25 @@
+# properties를 쓰던가 yml을 쓰던가 둘 중에 하나를 쓰면 된다.
+# 설정파일이 많아지고 복잡해지면 yaml이 더 낫다.
+# 이러한 설정들은 spring boot manual에서 공부해야 한다.
+spring:
+  datasource:
+    url: jdbc:h2:tcp://localhost/~/jpashop
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        # 운영 환경에서는 로그들을 System.out으로 찍으면 안되고 logger를 통해서 찍어야 한다.
+#        show_sql: true
+        format_sql: true
+
+# Hibernate가 남기는 모든 로그가 다 디버그 모드로 해서 JPA나 Hibernate가 생성하는 SQL이 다 보인다.
+logging:
+  level:
+    org.hibernate.SQL: debug
+    # 로깅하는 방법
+    org.hibernate.orm.jdbc.bind: trace
