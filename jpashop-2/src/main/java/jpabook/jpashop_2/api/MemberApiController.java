@@ -9,11 +9,86 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @RestController
 @RequiredArgsConstructor
 public class MemberApiController {
 
     private final MemberService memberService;
+
+    @GetMapping("/api/v1/members")
+    public List<Member> membersV1() {
+        // 그냥 가져와서 리스트에 엔티티 반환 끝
+        // 만약에 api 라는게 회원에 대한 정보만 달라고 했는데 지금 실제 회원이 주문한 게 있으면 orders 정보에 뭔가 포함되어 있을 것이다.
+        // 오더를 정보로 원하는게 아니라 회원정보를 원하고 있다.
+        // 그런데 이렇게 entity를 직접 노출하게 되면 이 Entity에 있는 정보들이 다 외부에 노출이 되버린다.
+        // -> @JsonIgnore 어노테이션 사용하면 주문정보가 빠지고 순수하게 회원 데이터만 뿌린다.
+        // 이게 어디서 멘붕이 되냐? -> 다른 API 만들 때 멘붕이 된다.
+        // -> 회원과 관련된 조회 API가 하나가 아닐 거란 말이다.
+        // -> 굉장히 많은 클라이언트들이 다양한 API 스타일을 요구할텐데 그러면 그때마다 필요한 파라미터가 다르다면?
+        // -> 케이스가 엄청 다양해서 엔티티 안에 이런 것들을 녹이기 시작하면 답이 안나온다.
+        // 엔티티가 화면을 뿌리기 위한 로직이 들어가 버렸다.
+        // -> 엔티티에 프레젠테이션 계층을 위한 로직이 추가되기 시작한 것이다.
+        // -> 엔티티로 의존관계가 들어와야 하는데 반대로 엔티티에 의존관계가 나가버린 거다!
+        // -> 이렇게 되면 양방향으로 의존관계가 걸리면서 애플리케이션을 수정하기 되게 어렵게 된다.
+        // -> name => username으로 바꾸면 엔티티 변경으로 api 스펙 전체가 바뀌는 심각한 문제가 발생한다.
+        // -> 엔티티 직접 반환 하지 마라!
+        // 번외: array가 넘어오는데 여기다가 카운트 넘겨달라하면 json 스펙 꺠진다.
+        // "data": [] 이렇게 오면 "count" : 4 이렇게 할 순 있는데 지금 방식은 Array를 바로 반환하여 스펙이 굳어서 확장할 수가 없다.
+        // -> 유연성이 떨어진다.
+        return memberService.findMembers();
+    }
+
+    @GetMapping("/api/v2/members")
+    public Result memberV2() {
+        // list를 바로 collection이랑 바로 내면 json 배열 타입으로 나가 버리기 때문에 유연성이 확 떨어진다.
+        // 배열만으로 되는게 간단하지 않다. 실무에서는
+        // api는 좋아하는 스타일로 스트림으로 받아서 그냥 돌리면 된다.
+        // MemberDto가 오브젝트고 그안에 name이!
+        // name -> username으로 바뀌어도 컴파일 단계에서 오류가 발생하여 막을 수 있다!
+        // -> 스펙이 변하지 않는다!
+        // API 스펙에서 내가 딱 노출할 것만 여기 스펙에 노출할 수 있고 그 말인 즉, API 스펙이 곧 이 DTO랑 코드가 1대1이 된다.
+        // 유지 보수도 쉽다. -> 엔티티 그대로 나가면 유지 보수 힘들다.
+        // 엔티티를 dto로 변환하는 수고로움이 추가되었다.
+        // 그러나 엔티티가 변경이 되어도 API 스펙이 변하지 않는 장점이 있다.
+        // 추가로 한번 감싸서 받아내기 때문에 유연성이 생긴다.
+
+        // [강조]
+        // - api를 만들 때는 파라미터를 받든 나가든 절대 엔티티를 노출하거나 받지 마라!
+        // - 꼭 중간에 api 스펙에 맞는 dto를 만들고 그것을 활용하는 것을 추천이 아니라 강제한다.
+        // - 이것만 해도 많은 문제들이 자연스럽게 해결이 된다.
+
+        // [다음시간에 할 것]
+        // - 회원 조회처럼 단순한 조회가 아니라 진짜 복잡한 조회를 어떤 식으로 해결하는지 보여줄 것이다.
+        // - 그러면서 성능까지
+        // - 지금은 단순하게 한 건이니까 성능 문제 같은게 전혀 없는데 단순하게 하나의 테이블만 바라보는 거니까
+        // - 그런데 실무에서는 여러 테이블을 조인하면서 api가 만들어져야 한다.
+        // - 그러면서 성능까지 어떻게 챙길 수 있는지, 뭐 페이징 처리 같은 것들 포함해서 어떻게 문제를 해결할 수 있는지 설명을 하겠다.
+        // - 실무에서 어려워하는 부분: 되게 복잡한 API일 때 어떻게 성능을 챙기면서 API를 만드는지. JPA랑 spring을 활용해서. -> 이 부분들을 시원하게 해결해주겠다.
+        List<Member> findMembers = memberService.findMembers();
+        List<MemberDto> collect = findMembers.stream()
+                .map(m -> new MemberDto(m.getName()))
+                .collect(Collectors.toList());
+
+//        return new Result(collect.size(), collect);
+        return new Result(collect);
+    }
+
+    @Data
+    @AllArgsConstructor
+    static class Result<T> {
+        // 필요하면 여기다 count도 추가하면 바로 적용된다.
+//        private int count;
+        private T data;
+    }
+
+    @Data
+    @AllArgsConstructor
+    static class MemberDto {
+        private String name;
+    }
 
     @PostMapping("/api/v1/members")
     public CreateMemberResponse saveMemberV1(@RequestBody @Valid Member member) {
