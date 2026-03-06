@@ -4,11 +4,10 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jpabook.jpashop_2.domain.Member;
 import jpabook.jpashop_2.service.MemberService;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -51,6 +50,36 @@ public class MemberApiController {
 
         Long id = memberService.join(member);
         return new CreateMemberResponse(id);
+    }
+
+    // put은 멱등하다고 한다.
+    // 같은 것을 여러 번 해도 결과가 똑같다.
+    @PutMapping("/api/v2/members/{id}")
+    public UpdateMemberResponse updateMemberV2(
+            @PathVariable("id") Long id,
+            @RequestBody @Valid UpdateMemberRequest request) {
+
+        // 수정할 때는 가급적이면 변경 감지를 쓰라고 했다.
+        // 강사는 단순하게 PK 하나 찍어서 조회하는 것 정도는 특별하게 트래픽 많은 API가 아니면 이슈가 안되기 때문에 그냥 커맨드랑 쿼리를 이렇게 해서 분리하는 스타일로 개발한다.
+        // -> 유지보수성이 많이 증대된다.
+        memberService.update(id, request.getName());
+        Member findMember = memberService.findOne(id);
+        return new UpdateMemberResponse(findMember.getId(), findMember.getName());
+    }
+
+    @Data
+    static class UpdateMemberRequest {
+        private String name;
+    }
+
+    // 강사는 lombok annotation 중에 몇 개만 제한적으로 쓴다.
+    // 엔티티에 쓰는건 최대한 자제한다. (@Getter 정도만)
+    // DTO에는 막쓴다. -> 대충 데이터 왔다갔다 하는거니깐 -> 실용적인 관점에서
+    @Data
+    @AllArgsConstructor
+    static class UpdateMemberResponse {
+        private Long id;
+        private String name;
     }
 
     @Data

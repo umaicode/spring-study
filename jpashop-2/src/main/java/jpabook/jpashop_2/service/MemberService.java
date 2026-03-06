@@ -42,4 +42,18 @@ public class MemberService {
     public Member findOne(Long memberId) {
         return memberRepository.findOne(memberId);
     }
+
+    // 트랜잭션이 시작되었고 영속성 컨텍스트 멤버 올린 거 반환해서 영속 상태
+    // 영속 상태 멤버를 바꾸면 스프링 AOP가 동작하고 JPA가 플러쉬해주고 커밋 다한다.
+    // 강사가 좋아하는 기법: 그냥 public void update 말고 public Member update로 반환해도 된다.
+    // -> 애매해지는 부분이 있다.
+    // -> 영속 상태가 끊기는 멤버가 반환하게 된다.
+    // 강사는 커맨드와 쿼리를 철저하게 분리한다 라는 정책을 가지고 있다.
+    // -> public Member update 방식은 업데이트를 하면서 결국 멤버를 쿼리해버리는 꼴이다.
+    // -> id를 가지고 Member에서 조회하는 꼴이 된다. -> 커맨드랑 쿼리가 같이 있다.
+    @Transactional
+    public void update(Long id, String name) {
+        Member member = memberRepository.findOne(id);
+        member.setName(name);
+    }
 }
