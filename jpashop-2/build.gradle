@@ -32,6 +32,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-devtools'
 	implementation 'com.github.gavlyukovskiy:p6spy-spring-boot-starter:2.0.0'
+	// 스프링 부트 3.0 이상: Hibernate5JakartaModule 등록
+	// implementation 'com.fasterxml.jackson.datatype:jackson-datatype-hibernate5-jakarta'
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'com.h2database:h2'
 	annotationProcessor 'org.projectlombok:lombok'
