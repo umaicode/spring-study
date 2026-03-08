@@ -98,6 +98,27 @@ public class OrderSimpleApiController {
         return result;
     }
 
+    // 쿼리가 한번 나간다. -> 기가 막힌다!
+    // 이거 SQL로 한땀한땀 다 짜고 결국 가져와서 이거 맵핑하려면 진짜 한세월이다.
+    // 지연로딩 자체가 일어나지 않는다.
+    // 진짜 Member 객체랑 Delivery 객체가 여기 Order에 같이 조회가 되서 나온다.
+    // 레이지 로딩 고민 안해도 된다.
+    // 실무에서 정말 자주 사용하는 기법이다.
+    // -> 실무에서 생각보다 객체 그래프를 자주 사용하는게 보통 정해져 있다.
+    // -> 보통 주문서 할 때는 회원이랑 Delivery 정보를 같이 쓴다.
+    // -> 이런게 전제가 되기 때문에 아예 그냥 하나를 찍어 놓고 findAll로 쓰기도 한다.
+    // [단점]
+    // 엔티티를 찍어서 줘야하는게 단점. -> 이거 최적화 다음 시간
+    @GetMapping("/api/v3/simple-orders")
+    public List<SimpleOrderDto> ordersV3() {
+        List<Order> orders = orderRepository.findAllWithMemberDelivery();
+        List<SimpleOrderDto> result = orders.stream()
+                .map(o -> new SimpleOrderDto(o))
+                .collect(Collectors.toList());
+
+        return result;
+    }
+
     @Data
     static class SimpleOrderDto {
         private Long orderId;
