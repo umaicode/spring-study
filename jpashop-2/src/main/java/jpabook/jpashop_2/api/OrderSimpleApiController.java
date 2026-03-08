@@ -5,6 +5,8 @@ import jpabook.jpashop_2.domain.Order;
 import jpabook.jpashop_2.domain.OrderStatus;
 import jpabook.jpashop_2.repository.OrderRepository;
 import jpabook.jpashop_2.repository.OrderSearch;
+import jpabook.jpashop_2.repository.order.simplequery.OrderSimpleQueryDto;
+import jpabook.jpashop_2.repository.order.simplequery.OrderSimpleQueryRepository;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -48,6 +50,7 @@ public class OrderSimpleApiController {
     // EAGER로 해두면 또 다른 API에서 문제다.
     // 다른데서 Member가 필요 없어도 일단 EAGER여서 다 긁어온다.
     private final OrderRepository orderRepository;
+    private final OrderSimpleQueryRepository orderSimpleQueryRepository;
 
     @GetMapping("/api/v1/simple-orders")
     public List<Order> ordersV1() {
@@ -117,6 +120,31 @@ public class OrderSimpleApiController {
                 .collect(Collectors.toList());
 
         return result;
+    }
+
+    // SELECT 에서 내가 원하는 것만 가져온다. -> v4에는 SELECT 절이 확 줄었다. -> 내가 직접 쿼리를 짰으니깐.
+    // v3에서는 join 까지는 성능이 똑같은데 SELECT 절에서 데이터를 DB에서 많이 퍼올려서 네트워크를 더 많이 쓴다.
+    // Q. v4가 더 좋은가요?
+    // A. 트레이드 오프가 있어서 우열을 가리기 힘들다.
+    // v4는 재사용성이 없다.
+    // v3의 경우 굉장히 많은 API에서 사용할 수 있다.
+    // 그러나 v4 가 성능최적화는 낫다.
+    // v3는 엔티티를 조회, v4는 DTO를 조회했기 때문에 변경을 할 수가 없다. -> 엔티티가 아니어서 JPA가 뭐 할 수 있는게 없다.
+    // findOrderDtos()가 좀 지저분하다. -> 서로 장단이 있다.
+
+    // OrderRepository에 작성한 단점을 상쇄하는 방법이 있다.
+    // -> repository는 entity를 조회하는데 써야 한다.
+    // -> DTO를 조회한다? -> API 스펙이 그냥 repository에 들어와있는 거라고 보면 된다.
+    // -> 강사는 주로 이렇게 해결한다.
+    // -> repository나 하위에 새로운 패키지 계층을 하나 만든다.
+    // -> 쿼리용 완전 이렇게 성능 최적화된 쿼리용을 별도로 뽑는다.
+    // -> 예를 들면 지금 경우에 repository에 order.simplequery를 만든다.
+    // -> OrderRepository를 order.simplequery에 넣는게 맞는데 지금은 그냥 간다.
+    // -> 지금은 이름이 SimpleQuery니까 OrderQueryRepository 이런 식으로 강사는 Query용을 별도로 뽑는다.
+    //
+    @GetMapping("/api/v4/simple-orders")
+    public List<OrderSimpleQueryDto> ordersV4() {
+        return orderSimpleQueryRepository.findOrderDtos();
     }
 
     @Data
