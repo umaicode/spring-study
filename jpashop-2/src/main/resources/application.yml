@@ -23,4 +23,5 @@ logging:
   level:
     org.hibernate.SQL: debug
     # 로깅하는 방법
-    org.hibernate.orm.jdbc.bind: trace
+    # p6spy 라이브러리 넣어서 볼 수 있다.
+#    org.hibernate.orm.jdbc.bind: trace

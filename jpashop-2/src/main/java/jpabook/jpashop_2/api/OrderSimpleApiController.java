@@ -1,13 +1,18 @@
 package jpabook.jpashop_2.api;
 
+import jpabook.jpashop_2.domain.Address;
 import jpabook.jpashop_2.domain.Order;
+import jpabook.jpashop_2.domain.OrderStatus;
 import jpabook.jpashop_2.repository.OrderRepository;
 import jpabook.jpashop_2.repository.OrderSearch;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * xToOne(ManyToOne, OneToOne)
@@ -53,5 +58,61 @@ public class OrderSimpleApiController {
             order.getDelivery().getAddress();    // Lazy 강제 초기화
         }
         return all;
+    }
+
+    // v1과 v2 둘다 가지고 있는 문제가 있다.
+    // -> 레이지 로딩으로 인한 데이터베이스 쿼리가 너무 많이 호출되는 문제
+    // 첫번째 주문서는 쿼리 3번으로 완성이 된다.
+    // 두번째 주문서도 member랑 delivery를 가지고 온다.
+    // ORDER -> SQL 1번 -> 결과 주문수 2개
+    // 처음 돌 때 SimpleOrderDto에서 name 가져오고 address 를 또 가져온다.
+    // 즉, 총 1 + 2 + 2 = 5개가 나간다.
+    @GetMapping("/api/v2/simple-orders")
+    public List<SimpleOrderDto> ordersV2() {
+        // ORDER 2개
+        // N + 1 -> 1 + 회원 N(2) + 배송 N(2)
+        // EAGER로 바꾸면 해결될까?
+        // -> 안된다. 그리고 실무에서는 EAGER쓰면 안됨을 강사는 깨달았다.
+        // EAGER 걸리면 예측이 안된다.
+        // 일단 오더를 가지고 온다.(EAGER)
+        // 어 EAGER가 있네?(MEMBER, DELIVERY)
+        // 다 가져와야지 이러고 있다.
+        // -> 모든 연관관계는 LAZY로 해두어야 한다. 필요하면 다음 시간에 말할 패치 조인이라는 걸로 튜닝해야 한다.
+
+        // 같은 멤버를 조회하게 되면 어떻게 될까?
+        // 처음에 오더가 나간다. -> 오더가 2개가 나온다.
+        // 루프를 돌고 SimpleOrderDto 2번 호출
+        // 처음에는 영속성 컨텍스트가 없기 때문에 Member를 가져온다.(userA)
+        // 두번째 돌 때 Delivery 가져온다.
+        // 영속성 컨텍스트에 가봤는데 없으니까 영속성 컨텍스트 DB에서 가져와서 초기화시켜주는 거다.
+        // 어? 영속성 컨텍스트에 두번째 Member를 가져오라고 했는데 userA가 이미 있다!
+        // 그렇기 때문에 쿼리를 안날리고 그냥 있는 거 가져온다.
+        // Member 조회 안하고 Delivery만 조회.
+        List<Order> orders = orderRepository.findAllByString(new OrderSearch());
+
+        // 2개면 결과적으로 2번 loop를 돈다.
+        List<SimpleOrderDto> result = orders.stream()
+                .map(o -> new SimpleOrderDto(o))
+                .collect(Collectors.toList());
+
+        return result;
+    }
+
+    @Data
+    static class SimpleOrderDto {
+        private Long orderId;
+        private String name;
+        private LocalDateTime orderDate;
+        private OrderStatus orderStatus;
+        private Address address;
+
+        // entity 에서 name -> username으로 바꿔도 이제 오류를 잡을 수 있다.
+        public SimpleOrderDto(Order order) {
+            orderId = order.getId();
+            name = order.getMember().getName(); // LAZY 초기화: 영속성 컨텍스트가 이 memberId를 가지고 영속성 컨텍스트를 찾아본다. 없으면 db쿼리 날린다. -> 데이터 긁어온다.
+            orderDate = order.getOrderDate();
+            orderStatus = order.getStatus();
+            address = order.getDelivery().getAddress(); // LAZY 초기화
+        }
     }
 }
