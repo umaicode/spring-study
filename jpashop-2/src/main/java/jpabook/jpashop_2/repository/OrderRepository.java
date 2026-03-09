@@ -117,6 +117,56 @@ public class OrderRepository {
         ).getResultList();
     }
 
+    // 지금 Order랑 OrderItems를 join 한다.
+    // 지금 데이터 양이 원래 Order가 몇 개? -> 2개
+    // OrderItems -> 4개
+    // -> Order가 4개가 되어버린다.
+    // Order1: 2개, Order2: 2개
+    // join 이라는 것은 1이랑 2가 join되면 join은 그냥 쭉쭉 한 줄씩 다 만들어야 하기 떄문에 1이 그냥 2개 생긴다.
+    // -> 이게 문제가 뭐냐? JPA에서 데이터로 Order를 가져올 때도 데이터가 두 배로 되버린다.
+    // postman에서는 중복 안하는데 h2 console에서는 2배로 뻥튀기가 되었다!
+    // fetch join도 결과적으로 그냥 DB 입장에서는 SQL문 입장에서는 그냥 JOIN이다.
+    // 대신에 SELECT 절에 더 데이터를 넣어 주냐 마냐의 차이 정도이다. (DB 입장에서)
+    // 이걸 가져와서 객체 그래프로 이제 막 다 담아야 되는데 DB 입장에서 이렇게 뻥튀기 된 거를 하이버네이트나 이런 애들 입장에서는 모른다.
+    // 그냥 뻥튀기 하는 대로 써야 될지 이것에 대해서 명확히 기준으로 우리가 알려줘야 한다.
+    // 자 근데 우리가 원하는 것은 사실 Order에 대해서는 뻥튀기를 하고 싶지 않다.
+    // -> 심지어 이거 오더 객체를 갖다가 지금 2개 뿌린거여서 중복이다.
+    // distinct: 얘는 DB의 Distinct 플러스 한 가지를 더 해준다.
+    // 실제 SQL에도 distinct를 넣어준다.
+    // 그런데 문제가 있다.
+    // -> DB의 distinct는 정말 한 줄이 전부 다 똑같아야 중복 제거가 된다.
+    // -> 지금 경우에는 DB query에서는 distinct는 안된다. distinct는 명령을 날렸지만 DB query의 결과를 뽑을 때는 그냥 이전이랑 똑같다.
+
+    // JPA에서는 이 Distinct가 있으면 이 Order를 가지고 올 때 이 Order가 같은 ID 값이면 얘를 그냥 중복을 제거해 준다. -> 하나를 버린다. -> 그렇게 해서 리스트에 담아서 반환을 해준다.
+
+    // [정리]
+    // 1. DB에 Distinct 키워드를 날려주고
+    // 2. 보통 루트라고 표현을 하는데 요 엔티티가 중복일 경우에 그 중복을 걸러서 컬렉션에 담아준다.
+
+    // [참고]
+    // 컬렉션 패치 조인은 한 개만 사용할 수 있다.
+    // -> 1대 다에 대한 패치 조인은 하나만 사용해야 한다.
+    // -> 이 컬렉션 패치 조인을 둘 이상에서 사용하면 데이터가 지금 1대 다도 복잡한데 1대 다의 다가 된다.
+    // -> N:M이 곱하기가 되어서 데이터가 완전 뻥튀기가 되어버린다.
+    // -> 잘못하면 JPA 입장에서 이거 데이터를 못 맞출 수 있다.
+    // -> 이거를 뭘 기준으로 데이터를 끌고 와야 되지 이제 모르게 될 수 있다.
+    // -> 데이터 갯수가 안맞거나 정합성이 안맞아질 수 있다.
+    // -> 그래서 보통 컬렉션 패치 조인 두 개 하면 경고를 내는데 우리는 딱 하나만 써야 한다!
+    // -> 걍 기억하자.
+    // 1. 두 개 쓰면 안된다.
+    // 2. 페이지 불가능하다.
+    public List<Order> findAllWithItem() {
+        return em.createQuery(
+                "select distinct o from Order o" +
+                        " join fetch o.member m" +
+                        " join fetch o.delivery d" +
+                        " join fetch o.orderItems oi" +
+                        " join fetch oi.item i", Order.class)
+//                .setFirstResult(1)
+//                .setMaxResults(100)
+                .getResultList();
+    }
+
 
     // Repository에 Controller랑 의존관계 생기면 망한다.
     // 가급적이면 한방향으로 흘러야 한다.
