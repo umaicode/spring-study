@@ -155,6 +155,33 @@ public class OrderRepository {
     // -> 걍 기억하자.
     // 1. 두 개 쓰면 안된다.
     // 2. 페이지 불가능하다.
+//    public List<Order> findAllWithItem() {
+//        return em.createQuery(
+//                "select distinct o from Order o" +
+//                        " join fetch o.member m" +
+//                        " join fetch o.delivery d" +
+//                        " join fetch o.orderItems oi" +
+//                        " join fetch oi.item i", Order.class)
+////                .setFirstResult(1)
+////                .setMaxResults(100)
+//                .getResultList();
+//    }
+
+
+    // Order 입장에서 member랑 delivery는 확실하게 ToOne 관계이다.
+    // ToOne 관계로 계속 이어지는 거는 FETCH JOIN을 계속 걸어도 된다.
+    // -> 그래도 데이터가 증가하지 않는다. 그냥 일자로 쭉 생성이 되니까 데이터 로우 수가 변하지는 않는다.
+    // 데이터가 없는 경우에는 LEFT JOIN을 해야 되겠지만 그런 경우를 제외하고는 기본적으로 데이터 뻥튀기가 되지 않는다.
+    // 근데 orderItems는 ToOne 관계가 아니다.
+    // -> 얘를 FETCH JOIN하면 성능 최적화가 불가능해진다.
+    // -> OrderItems 다음의 item도 일대다로 간다음에 얘네끼리 하는 것이기 때문에 FETCH JOIN을 하면 안된다.
+    // -> 따라서 member랑 delivery까지만 FETCH JOIN
+    // 컬렉션은 지연 로딩으로 조회해야 한다.
+    // -> 한마디로 FETCH JOIN으로 안가져온다. (LAZY로 둔다)
+    // 지연 로딩 성능 최적화를 위해 hibernate.default_batch_fetch_size, @BatchSize를 적용한다.
+    // -> hibernate.default_batch_fetch_size: 글로벌 설정
+    // -> @BatchSize: 개별 최적화
+    // -> 이 옵션을 사용하면 컬렉션이나, 프록시 객체를 한꺼번에 설정한 size 만큼 IN 쿼리로 조회한다.
     public List<Order> findAllWithItem() {
         return em.createQuery(
                 "select distinct o from Order o" +
@@ -162,11 +189,10 @@ public class OrderRepository {
                         " join fetch o.delivery d" +
                         " join fetch o.orderItems oi" +
                         " join fetch oi.item i", Order.class)
-//                .setFirstResult(1)
-//                .setMaxResults(100)
+                .setFirstResult(1)
+                .setMaxResults(100)
                 .getResultList();
     }
-
 
     // Repository에 Controller랑 의존관계 생기면 망한다.
     // 가급적이면 한방향으로 흘러야 한다.
@@ -203,4 +229,34 @@ public class OrderRepository {
 
     // DTO를 바로 조회해야 하기 때문에 DTO class를 만들어야 한다.
     // v3까지는 DTO가 Controller에 있는데 지금은 Repository에 해야 되기 때문에 의존관계가 이제 Repository Controller로 보는 이상한 사태가 벌어질 수도 있다.
+    // ToOne 관계는 뺴도 상관없다. -> batch_size에 영향을 받기 때문
+    // 그러나 네트워크를 더 많이 쓴다.
+    // 그래서 ToOne관계는 그냥 다 FETCH JOIN을 미리 잡는게 좋다.
+    // 이렇게 하면 Member랑 Delivery에 나가는 쿼리를 줄일 수 있다.
+    // 결론: default_batch_fetch_size 덕분에 n + 1문제에서 어느정도 해방이 된다.
+    // detail하게 적용하고 싶으면 orderItems에다가 @BatchSize(size = 1000) 한 1000개씩 넣고 싶으면
+    // 아이템(ToOne) 이런데 하고 싶으면 최상단 @Entity위에 @BatchSize 적용
+    // 이렇게 적는게 의미는 없다고 강사는 이야기 한다...
+    // 그런데 size는 중요하다.
+    // 1000개 넘어가면 오류를 일으키는 DB도 있다.. 그래서 Maximum 1000개
+    // 적당한 사이즈가 좋다.(100 ~ 1000) -> 너무 작으면 쿼리가 너무 많이 나간다.
+    // 1000개는 DB, 애플리케이션 모두 순간적인 부하가 생긴다.
+    // 10개는 DB, 애플리케이션 짧게 다다다다 끊어서 가기 때문에 부하는 주는데 시간은 더 오래 걸린다.
+    // -> 정답이 없다. 개인적으로 강사가 권장하는 것은 WAS랑 DB가 버틸 수 있으면 큰 숫자를 선택
+    // 순간 부하의 걱정이 있으면 100정도 넣고 써보면서 늘리기
+    // 메모리같은 경우에는 DB는 제쳐두고 WAS 입장에서는 10개씩 하면 WAS 메모리가 최적화되는 거 아니냐고 생각할 수 있는데 아니다.
+    // -> 10개든 1000개든 최종적으로 데이터베이스에서 끌어와야하는 데이터 개수는 똑같다.
+    // 어차피 메모리는 루프를 다 돌때까지 기다려야 한다.
+    // -> result 리스트가 다 찰 때까지 기다려서 특정 시점에 JVM에 들어가는 메모리는 옵션과 무관하게 대부분 찬다고 보면 된다.(batch_size 써도)
+    // out of memory 가 날 확률은 100이든 1000이든 거의 같다.
+    // 대부분의 성능 최적화는 이 레벨에서 90% 이상은 다 해결이 된다
+    public List<Order> findAllWithMemberDelivery(int offset, int limit) {
+        return em.createQuery(
+                "select o from Order o" +
+                        " join fetch o.member m" +
+                        " join fetch o.delivery d", Order.class)
+                .setFirstResult(offset)
+                .setMaxResults(limit)
+                .getResultList();
+    }
 }

@@ -9,6 +9,7 @@ import jpabook.jpashop_2.repository.OrderSearch;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
@@ -121,6 +122,53 @@ public class OrderApiController {
         // 그런데 뭐 오더 아이템을 기준으로 아이템 하는 애도 해도 된다.
         // 근데 중간에 o.orderItems oi가 걸려 들어간다.
         // 얘는 오더 입장에서는 1대 다 패치 조인이기 때문에 데이터가 뻥튀기가 되서 페이징 자체가 이제 불가능해진다.(DB 상으로)
+        List<OrderDto> result = orders.stream()
+                .map(o -> new OrderDto(o))
+                .collect(Collectors.toList());
+
+        return result;
+    }
+
+    // 오더랑 멤버랑 딜리버리는 투원관계여서 쿼리 1번
+    // 오더 아이템스는 쿼리 1번
+    // 그 안에 오더 아이템은 총 2개 이기에 쿼리 2번
+    // 1 -> N -> M
+    // 오더가 한 100개면 성능 안나온다!
+    // application.yml에서 batch_size 설정으로 미리 꺼내올 수 있다.
+    // size: IN query의 개수
+    // 아이템이 총 4번 호출되었던게 한방에 4개를 다 땡겨온다.
+    // 아이템이 1000개인데 limit가 100이면 10번 돈다.
+    // DB 입장에서 최적화가 잘되는 코드이다.
+    // v3는 쿼리 1번에 나가긴했다. -> 한방 쿼리
+    // 얘는 이전꺼에 비해서 3번이 나갔지만, 느릴까?
+    // 장단점이 있다.
+    // v3의 문제는 FETCH JOIN을 하는데 한방에 JOIN 하니깐 중복이 엄청 많다.
+    // 오더 같은 경우 다 중복이 된다. 중복데이터가 너무 많은데 DB에서 애플리케이션한테 다 전송한다.
+    // 쿼리는 한방에 나가지만 데이터 전송량 자체가 많아진다. -> 일대다 JOIN하면 데이터가 뻥튀기가 된다.
+    // 다의 데이터에 맞추어서 1의 데이터를 뻥튀기시킨다.
+    // 결과적으로 SQL에 나가기 때문에 용량이 많다.
+    // v3.1은 쿼리가 최적화되서 나간다.
+    // 첫번째쿼리: 2개 (애플리케이션으로 정확하게 중복 없는 데이터가 전송이 된다) -> 데이터 전송량 자체가 준다.
+    // 오더아이템스도 중복없이 정확하게 가져온다.
+    // 아이템도 중복없이 정확하게 가져온다.
+    // -> 테이블 단위로 IN query를 팍팍 찍어서 가져오기 때문이다.
+    // 이전 것이 정교화가 안되어 있다면 이건 이제 정교화된 상태로 데이터를 조회하는거다. 물론 쿼리가 더 나가긴 하지만.
+    // 네트워크를 호출하는 횟수랑 전송하는 거 사이에서 트레이드오프가 있다.
+    // 단쿼리에 데이터가 많이 없으면 한방 FETCH JOIN으로 날리는게 당연히 성능이 이로운데 데이터가 한번에 1000개씩 퍼올려야 되는 상황이면 한방 FETCH JOIN보다 이게 더 성능이 잘 나올 수 있다.
+    // 상황과 데이터 양에 따라 다르다.
+    // 그리고 애는 페이징도 가능하다.
+    // 강사는 이 방식을 선호한다.
+    // 페이징 써야되면 방법이 이 방식밖에 없다.
+    @GetMapping("/api/v3.1/orders")
+    public List<OrderDto> ordersV3_page(@RequestParam(value = "offset", defaultValue = "0") int offset,
+                                        @RequestParam(value = "limit", defaultValue = "100") int limit)
+    {
+
+        // findAllWithMemberDelivery()는 ToOne 관계를 FETCH JOIN해서 페이징 쿼리를 써도 아무 문제가 없다.
+        List<Order> orders = orderRepository.findAllWithMemberDelivery(offset, limit);
+
+
+
         List<OrderDto> result = orders.stream()
                 .map(o -> new OrderDto(o))
                 .collect(Collectors.toList());

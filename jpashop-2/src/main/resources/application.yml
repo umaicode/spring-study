@@ -17,6 +17,7 @@ spring:
         # 운영 환경에서는 로그들을 System.out으로 찍으면 안되고 logger를 통해서 찍어야 한다.
 #        show_sql: true
         format_sql: true
+        default_batch_fetch_size: 100
 
 # Hibernate가 남기는 모든 로그가 다 디버그 모드로 해서 JPA나 Hibernate가 생성하는 SQL이 다 보인다.
 logging:
