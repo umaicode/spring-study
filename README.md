@@ -72,7 +72,7 @@
 | 01 | API 개발 기본 (엔티티 직접 노출 vs DTO / CQS / Result 래퍼) | [01README.md](./jpashop-2/01README.md) |
 | 02 | API 개발 고급 - 준비 (샘플 데이터 설계 / @PostConstruct + @Transactional 분리) | [02README.md](./jpashop-2/02README.md) |
 | 03 | API 개발 고급 - 지연 로딩과 조회 성능 최적화 (N+1 문제 / 페치 조인 / DTO 직접 조회) | [03README.md](./jpashop-2/03README.md) |
-| 04 | API 개발 고급 - 컬렉션 조회 최적화 | - |
+| 04 | API 개발 고급 - 컬렉션 조회 최적화 (컬렉션 페치 조인 / batch_fetch_size / DTO 직접 조회 V4~V6) | [04README.md](./jpashop-2/04README.md) |
 | 05 | API 개발 고급 - 실무 필수 최적화 | - |
 | 06 | 다음으로 | - |
 
