@@ -6,6 +6,8 @@ import jpabook.jpashop_2.domain.OrderItem;
 import jpabook.jpashop_2.domain.OrderStatus;
 import jpabook.jpashop_2.repository.OrderRepository;
 import jpabook.jpashop_2.repository.OrderSearch;
+import jpabook.jpashop_2.repository.order.query.OrderFlatDto;
+import jpabook.jpashop_2.repository.order.query.OrderItemQueryDto;
 import jpabook.jpashop_2.repository.order.query.OrderQueryDto;
 import jpabook.jpashop_2.repository.order.query.OrderQueryRepository;
 import lombok.Getter;
@@ -17,6 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -67,7 +71,7 @@ public class OrderApiController {
         List<Order> orders = orderRepository.findAllByString(new OrderSearch());
         List<OrderDto> result = orders.stream()
                 .map(o -> new OrderDto(o))
-                .collect(Collectors.toList());
+                .collect(toList());
 
         return result;
     }
@@ -127,7 +131,7 @@ public class OrderApiController {
         // 얘는 오더 입장에서는 1대 다 패치 조인이기 때문에 데이터가 뻥튀기가 되서 페이징 자체가 이제 불가능해진다.(DB 상으로)
         List<OrderDto> result = orders.stream()
                 .map(o -> new OrderDto(o))
-                .collect(Collectors.toList());
+                .collect(toList());
 
         return result;
     }
@@ -174,7 +178,7 @@ public class OrderApiController {
 
         List<OrderDto> result = orders.stream()
                 .map(o -> new OrderDto(o))
-                .collect(Collectors.toList());
+                .collect(toList());
 
         return result;
     }
@@ -193,6 +197,31 @@ public class OrderApiController {
     @GetMapping("api/v5/orders")
     public List<OrderQueryDto> ordersV5() {
         return orderQueryRepository.findAllByDto_optimization();
+    }
+
+    // 쿼리는 1번이지만 JOIN으로 인해서 DB에서 애플리케이션에 전달하는 데이터의 중복 데이터가 추가되는게 단점이다.
+    // 상황에 따라서 앞서 봤던 v5보다 더 늘수도 있다.
+    // 데이터가 많지 않으면 훨씬 빠르다.
+    // 애플리케이션에서 추가작업이 크다. -> 분해를 해야하는 경우
+    // 분해를 안하고 FLAT DTO를 뿌리면 되게 편하겠지만 대부분 그런 경우는 없다.
+    // 페이징이 불가능하다. -> 오더를 기준으로 페이징 하는 건 안된다.
+    // OrderFlatDto나 오더 아이템과 관련되서는 어떻게 페이징을 해볼 수 있겠지만 오더를 기준으로 해서는 안된다.
+    // 왜냐하면 DBS 이거 자꾸 데이터 중복이 되버린다.
+    // 이미 이렇게 되면은 페이징 해서 정확한 결과가 안나온다.
+    // 예를 들어서 페이지를 두 개만 가져가라고 하면 userA만 선택되는 것이다.
+    // 오더 아이템을 기준으로 하면 아이템 개수랑 딱 맞기 때문에 지금 페이징할 수 있는데 지금은 안된다.
+    @GetMapping("api/v6/orders")
+    public List<OrderQueryDto> ordersV6() {
+        List<OrderFlatDto> flats = orderQueryRepository.findAllByDto_flat();
+
+        // 참고로 스트림으로 발라내려면?
+        return flats.stream()
+                .collect(groupingBy(o -> new OrderQueryDto(o.getOrderId(), o.getName(), o.getOrderDate(), o.getOrderStatus(), o.getAddress()),
+                        mapping(o -> new OrderItemQueryDto(o.getOrderId(), o.getItemName(), o.getOrderPrice(), o.getCount()), toList())
+                )).entrySet().stream()
+                .map(e -> new OrderQueryDto(e.getKey().getOrderId(), e.getKey().getName(), e.getKey().getOrderDate(), e.getKey().getOrderStatus(), e.getKey().getAddress(), e.getValue()))
+                .collect(toList());
+
     }
 
     // no properties 오류가 나온다면 보통 getter, setter 오류
@@ -226,7 +255,7 @@ public class OrderApiController {
 //            orderItems = order.getOrderItems();
             orderItems = order.getOrderItems().stream()
                     .map(orderItem -> new OrderItemDto(orderItem))
-                    .collect(Collectors.toList());
+                    .collect(toList());
         }
     }
 

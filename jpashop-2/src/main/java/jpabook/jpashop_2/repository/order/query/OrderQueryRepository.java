@@ -123,4 +123,23 @@ public class OrderQueryRepository {
                         " join o.delivery d", OrderQueryDto.class)
                 .getResultList();
     }
+
+    // [장점]
+    // 한 방 쿼리로 된다.
+    // Q. 페이징 할 수 있을까요?
+    // A. 페이징 할 수는 있다. 그런데 우리가 원했던 페이징은 아니다. 우리는 오더를 기준으로 페이징 하고 싶다. -> 이건 안된다.
+    // OrderItems가 기준이 된다.. -> 즉, 페이징 못한다.
+    // 문제가 있다. OrderFlatDto를 반환하는게 아니고 스펙을 우리가 OrderQueryDto에 맞추고 싶다면?
+    // -> 노가다를 하면 된다.
+    // V5에서 봤던 것이랑 같은 스펙으로 반환을 해야 되면 노가다를 하면 된다. 어디서? OrderApiController에서
+    public List<OrderFlatDto> findAllByDto_flat() {
+        return em.createQuery(
+                "select new jpabook.jpashop_2.repository.order.query.OrderFlatDto(o.id, m.name, o.orderDate, o.status, d.address, i.name, oi.orderPrice, oi.count)" +
+                        " from Order o" +
+                        " join o.member m" +
+                        " join o.delivery d" +
+                        " join o.orderItems oi" +
+                        " join oi.item i", OrderFlatDto.class)
+                .getResultList();
+    }
 }
