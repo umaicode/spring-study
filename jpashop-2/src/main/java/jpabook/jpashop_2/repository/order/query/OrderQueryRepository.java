@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 // package를 나누는 이유
 // OrderRepository는 진짜 오더 엔티티를 조회하거나 이런 용도로 쓰는 거고
@@ -35,6 +37,59 @@ public class OrderQueryRepository {
         });
 
         return result;
+    }
+
+    // in을 사용하는 방법
+    // 기존 방법과의 차이
+    // 앞에 거는 루프를 돌릴 때마다 query를 날렸는데
+    // 얘는 query를 한 번 날리고 메모리에서 얘를 map으로 다 가져온 다음에 메모리에서 이거를 매칭을 해가지고 값을 세팅해준다.
+    // 이 방식은 query가 총 2번 나간다.
+    // 처음에 루트를 다 조회하고 그 다음에 이제 한 방에 주문 데이터만큼 한 방에 또 그 맵에 메모리에서 올린다. 그 다음에 루프를 돌면서 그 모자랐던 컬렉션 데이터를 채운다.
+    // 이렇게 하면 query 2번으로 가능하다.
+    // 여러분 이런 생각이 들지 않으신가요?
+    // 직접 JPQL을 DTO로 하는게 마냥 편하지만 않는다는 느낌을 받을 것이다.
+    // 되게 많은 코드를 직접 작성하고 있다.
+    // 근데 이거 패치 조인, 컬렉션 패치 조인 때 생각해보시면 많은 거를 자동화된거다.
+    // 트레이드 오프가 존재한다.
+    // [장점]
+    // 이전의 패치조인보다 데이터 셀렉트하는 양이 줄어든다.
+    public List<OrderQueryDto> findAllByDto_optimization() {
+        List<OrderQueryDto> result = findOrders();
+
+        // order query에 나온 것을 갖다가 스트림으로 돌려서 아이디를 다 뽑는다.
+        // List<Long> orderIds = toOrderIds(result);
+        // Map<Long, List<OrderItemQueryDto>> orderItemMap = findOrderItemMap(orderIds);
+        Map<Long, List<OrderItemQueryDto>> orderItemMap = findOrderItemMap(toOrderIds(result));
+
+        result.forEach(o -> o.setOrderItems(orderItemMap.get(o.getOrderId())));
+
+        return result;
+    }
+
+    private Map<Long, List<OrderItemQueryDto>> findOrderItemMap(List<Long> orderIds) {
+        List<OrderItemQueryDto> orderItems = em.createQuery(
+                        "select new jpabook.jpashop_2.repository.order.query.OrderItemQueryDto(oi.order.id, i.name, oi.orderPrice, oi.count)" +
+                                " from OrderItem oi" +
+                                " join oi.item i" +
+                                " where oi.order.id in :orderIds", OrderItemQueryDto.class)
+                .setParameter("orderIds", orderIds)
+                .getResultList();
+
+        // 최적화 한번더 -> map으로 작성
+        // -> 코드도 작성이 쉽고 성능도 더 최적화 할 수 있게 orderItems를 map으로 바꾼다.
+        // orderId를 기준으로 맵으로 바꿀 수 있다.
+        // 메모리에 넣는게 핵심
+
+        Map<Long, List<OrderItemQueryDto>> orderItemMap = orderItems.stream()
+                .collect(Collectors.groupingBy(OrderItemQueryDto -> OrderItemQueryDto.getOrderId()));
+        return orderItemMap;
+    }
+
+    private List<Long> toOrderIds(List<OrderQueryDto> result) {
+        List<Long> orderIds = result.stream()
+                .map(o -> o.getOrderId())
+                .collect(Collectors.toList());
+        return orderIds;
     }
 
     // oi.order.id가 왜 될까요?

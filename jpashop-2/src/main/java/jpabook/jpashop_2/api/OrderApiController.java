@@ -190,6 +190,11 @@ public class OrderApiController {
         return orderQueryRepository.findOrderQueryDtos();
     }
 
+    @GetMapping("api/v5/orders")
+    public List<OrderQueryDto> ordersV5() {
+        return orderQueryRepository.findAllByDto_optimization();
+    }
+
     // no properties 오류가 나온다면 보통 getter, setter 오류
     // simple하게 @Data쓰는데 회사의 룰에 따라서 @Data가 해주는게 많아서 안쓰는게 나을 수도 있다.
     // 원래는 orderItems가 Entity여서 null이 나와야 하는데 왜 내 환경에서는 나오지?
